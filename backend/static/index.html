@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Agents</title>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: #2a2a35;
+    --accent: #7c6af7;
+    --accent2: #5af7b8;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --buy: #22c55e;
+    --sell: #ef4444;
+    --hold: #f59e0b;
+    --positive: #22c55e;
+    --negative: #ef4444;
+    --neutral: #6b6b80;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .sidebar-logo p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .sidebar-nav { padding: 16px 0; flex: 1; }
+  .nav-section { padding: 4px 20px; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; margin-top: 12px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13px; color: var(--muted); border-left: 3px solid transparent; transition: all 0.15s; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--surface2); color: var(--text); border-left-color: var(--accent); }
+  .nav-item .emoji { font-size: 16px; width: 20px; text-align: center; }
+  .market-ticker { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .ticker-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .ticker-val { color: var(--text); font-weight: 600; }
+  .ticker-chg.pos { color: var(--positive); }
+  .ticker-chg.neg { color: var(--negative); }
+
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .btn { padding: 7px 14px; border-radius: 7px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-buy { background: rgba(34,197,94,0.15); color: var(--buy); border: 1px solid rgba(34,197,94,0.3); }
+  .btn-buy:hover { background: rgba(34,197,94,0.25); }
+  .btn-sell { background: rgba(239,68,68,0.15); color: var(--sell); border: 1px solid rgba(239,68,68,0.3); }
+  .btn-sell:hover { background: rgba(239,68,68,0.25); }
+  .badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-buy { background: rgba(34,197,94,0.15); color: var(--buy); }
+  .badge-sell { background: rgba(239,68,68,0.15); color: var(--sell); }
+  .badge-hold { background: rgba(245,158,11,0.15); color: var(--hold); }
+
+  .page { display: none; flex: 1; overflow-y: auto; padding: 24px; }
+  .page.active { display: flex; flex-direction: column; gap: 20px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Market */
+  .market-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .market-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .market-card .asset { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .market-card .price { font-size: 22px; font-weight: 700; margin: 4px 0; }
+  .market-card .change { font-size: 12px; font-weight: 600; }
+  .market-card .change.pos { color: var(--positive); }
+  .market-card .change.neg { color: var(--negative); }
+  .market-card .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* Portfolio */
+  .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .agent-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .agent-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .agent-card-name { font-size: 14px; font-weight: 700; }
+  .agent-balance { font-size: 22px; font-weight: 700; }
+  .agent-pnl { font-size: 12px; margin-top: 1px; }
+  .agent-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .agent-stat { background: var(--surface); border-radius: 6px; padding: 6px 8px; }
+  .agent-stat-label { font-size: 10px; color: var(--muted); font-weight: 600; }
+  .agent-stat-val { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .positions-section { margin-top: 12px; }
+  .positions-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+  .position-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: var(--surface); border-radius: 7px; margin-bottom: 5px; font-size: 12px; }
+  .position-left { display: flex; gap: 8px; align-items: center; }
+  .pos-coin { font-weight: 700; font-size: 13px; }
+  .pos-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .pos-badge.long { background: rgba(34,197,94,0.15); color: var(--buy); }
+  .pos-badge.short { background: rgba(239,68,68,0.15); color: var(--sell); }
+  .pos-size { color: var(--muted); }
+  .position-right { display: flex; gap: 8px; align-items: center; }
+  .pos-pnl { font-weight: 600; }
+  .pos-pnl.pos { color: var(--positive); }
+  .pos-pnl.neg { color: var(--negative); }
+  .agent-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+  .no-positions { font-size: 11px; color: var(--muted); text-align: center; padding: 10px 0; }
+  .error-text { font-size: 11px; color: var(--sell); }
+
+  /* Technical */
+  .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .tech-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .tech-coin { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .tech-rsi { font-size: 28px; font-weight: 700; margin: 6px 0 2px; }
+  .tech-rsi.overbought { color: var(--sell); }
+  .tech-rsi.oversold { color: var(--buy); }
+  .tech-rsi.neutral { color: var(--text); }
+  .tech-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .tech-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; }
+  .tech-trend-bull { color: var(--positive); font-weight: 600; }
+  .tech-trend-bear { color: var(--negative); font-weight: 600; }
+
+  /* Funding table */
+  .funding-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .funding-table th { text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .funding-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); }
+  .funding-table tr:last-child td { border-bottom: none; }
+  .funding-pos { color: var(--sell); font-weight: 600; }
+  .funding-neg { color: var(--buy); font-weight: 600; }
+  .funding-zero { color: var(--muted); }
+
+  /* Order Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; min-width: 340px; max-width: 420px; width: 100%; }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+  .form-row { margin-bottom: 12px; }
+  .form-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .modal-actions .btn { flex: 1; padding: 9px; font-size: 13px; }
+  .warning-box { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 7px; padding: 8px 12px; font-size: 11px; color: var(--hold); margin-bottom: 12px; line-height: 1.5; }
+
+  /* Heartbeat reports */
+  .report-list { display: flex; flex-direction: column; gap: 10px; }
+  .report-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; cursor: pointer; }
+  .report-item:hover { border-color: var(--accent); }
+  .report-decision { font-size: 18px; }
+  .report-time { font-size: 11px; color: var(--muted); }
+  .report-btc { font-size: 12px; color: var(--text); margin-top: 3px; }
+  .report-traders { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .trader-signal { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); }
+  .report-expanded { display: none; padding: 12px; border-top: 1px solid var(--border); margin-top: 10px; }
+  .report-expanded.open { display: block; }
+  .report-expanded pre { font-size: 11px; color: var(--muted); white-space: pre-wrap; overflow-x: auto; }
+
+  /* Chat */
+  .chat-layout { display: flex; flex-direction: column; height: calc(100vh - 130px); }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 4px 0; display: flex; flex-direction: column; gap: 12px; }
+  .message { display: flex; gap: 10px; max-width: 85%; }
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+  .message-avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .message.user .message-avatar { background: var(--accent); }
+  .message.assistant .message-avatar { background: var(--surface2); border: 1px solid var(--border); }
+  .message-bubble { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .message.user .message-bubble { background: var(--accent); border-color: var(--accent); color: white; }
+  .chat-input-area { border-top: 1px solid var(--border); padding-top: 16px; display: flex; gap: 8px; }
+  .chat-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; color: var(--text); font-size: 13px; resize: none; outline: none; font-family: inherit; }
+  .chat-input:focus { border-color: var(--accent); }
+
+  /* News */
+  .news-list { display: flex; flex-direction: column; gap: 8px; }
+  .news-item { display: flex; gap: 10px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
+  .news-sentiment { font-size: 14px; flex-shrink: 0; }
+  .news-title { font-size: 12px; line-height: 1.4; }
+  .news-source { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* Memory */
+  .memory-content { font-family: monospace; font-size: 12px; line-height: 1.7; color: var(--muted); white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
+
+  /* Misc */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-dots::after { content: '.'; animation: dots 1.2s steps(3, end) infinite; }
+  @keyframes dots { 0%,20%{content:'.'} 40%{content:'..'} 60%,100%{content:'...'} }
+  .pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .agent-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .agent-tab { padding: 8px 14px; cursor: pointer; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .agent-tab:hover { color: var(--text); }
+  .agent-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .status-dot.green { background: var(--positive); box-shadow: 0 0 6px var(--positive); }
+  .empty { text-align: center; padding: 48px; color: var(--muted); font-size: 13px; }
+  .empty .icon { font-size: 40px; margin-bottom: 12px; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>⚡ Trading Agents</h1>
+      <p>Hyperliquid Mainnet</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Dashboard</div>
+      <div class="nav-item active" onclick="showPage('heartbeat')">
+        <span class="emoji">📊</span> Heartbeat
+      </div>
+      <div class="nav-item" onclick="showPage('portfolio')">
+        <span class="emoji">💼</span> Portfólio
+      </div>
+      <div class="nav-item" onclick="showPage('market')">
+        <span class="emoji">📈</span> Mercado
+      </div>
+      <div class="nav-item" onclick="showPage('news')">
+        <span class="emoji">📰</span> Notícias
+      </div>
+      <div class="nav-section">Agentes</div>
+      <div class="nav-item" onclick="showPage('chat'); setAgent('lux')">
+        <span class="emoji">🌟</span> Lux
+      </div>
+      <div class="nav-item" onclick="showPage('chat'); setAgent('hype_beast')">
+        <span class="emoji">🐂</span> Hype Beast
+      </div>
+      <div class="nav-item" onclick="showPage('chat'); setAgent('oracle')">
+        <span class="emoji">🔮</span> Oracle
+      </div>
+      <div class="nav-item" onclick="showPage('chat'); setAgent('vitalik')">
+        <span class="emoji">💎</span> Vitalik
+      </div>
+      <div class="nav-section">Debug</div>
+      <div class="nav-item" onclick="showPage('memory')">
+        <span class="emoji">🧠</span> Memória
+      </div>
+    </nav>
+    <div class="market-ticker" id="sidebar-ticker">
+      <div class="ticker-row"><span>BTC</span><span class="ticker-val" id="t-btc">–</span></div>
+      <div class="ticker-row"><span>ETH</span><span class="ticker-val" id="t-eth">–</span></div>
+      <div class="ticker-row"><span>HYPE</span><span class="ticker-val" id="t-hype">–</span></div>
+      <div class="ticker-row"><span>Dominância</span><span class="ticker-val" id="t-dom">–</span></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">📊 Heartbeat</div>
+      <div class="topbar-actions">
+        <span class="status-dot green pulse" id="status-dot"></span>
+        <span style="font-size:11px;color:var(--muted)" id="status-text">online</span>
+        <button class="btn btn-primary" id="hb-btn" onclick="triggerHeartbeat()" style="display:none">🔔 Disparar Heartbeat</button>
+        <select id="hb-interval-select" onchange="setHeartbeatInterval(this.value)" style="display:none;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">
+          <option value="15">⏱ 15 min</option>
+          <option value="30" selected>⏱ 30 min</option>
+          <option value="60">⏱ 1 hora</option>
+          <option value="120">⏱ 2 horas</option>
+        </select>
+        <button class="btn btn-ghost" id="tg-btn" onclick="sendTelegramReport()" style="display:none" title="Enviar relatório Telegram agora">📨 Telegram</button>
+        <button class="btn btn-ghost" id="portfolio-refresh-btn" onclick="loadPortfolio()" style="display:none">↻ Atualizar</button>
+      </div>
+    </div>
+
+    <!-- Heartbeat Page -->
+    <div class="page active" id="page-heartbeat">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Histórico de Análises</div>
+          <button class="btn btn-ghost" onclick="loadHeartbeats()">↻ Atualizar</button>
+        </div>
+        <div class="report-list" id="report-list">
+          <div class="empty"><div class="icon">📭</div>Nenhum relatório ainda. Dispare o primeiro heartbeat!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio Page -->
+    <div class="page" id="page-portfolio">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Análise Técnica — 1h Candles (Hyperliquid)</div>
+          <button class="btn btn-ghost" onclick="loadTechnical()">↻</button>
+        </div>
+        <div class="tech-grid" id="tech-grid">
+          <div class="tech-card"><div class="tech-coin">BTC</div><div class="tech-rsi neutral" id="tech-rsi-BTC">–</div><div class="tech-label" id="tech-label-BTC">RSI(14)</div><div class="tech-row"><span id="tech-ema-BTC" style="color:var(--muted)">–</span><span id="tech-trend-BTC">–</span></div></div>
+          <div class="tech-card"><div class="tech-coin">ETH</div><div class="tech-rsi neutral" id="tech-rsi-ETH">–</div><div class="tech-label" id="tech-label-ETH">RSI(14)</div><div class="tech-row"><span id="tech-ema-ETH" style="color:var(--muted)">–</span><span id="tech-trend-ETH">–</span></div></div>
+          <div class="tech-card"><div class="tech-coin">HYPE</div><div class="tech-rsi neutral" id="tech-rsi-HYPE">–</div><div class="tech-label" id="tech-label-HYPE">RSI(14)</div><div class="tech-row"><span id="tech-ema-HYPE" style="color:var(--muted)">–</span><span id="tech-trend-HYPE">–</span></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Funding Rates — Hyperliquid Perps</div>
+        </div>
+        <table class="funding-table">
+          <thead><tr><th>Ativo</th><th>Preço Mark</th><th>Funding/h</th><th>Open Interest</th><th>Volume 24h</th></tr></thead>
+          <tbody id="funding-tbody">
+            <tr><td colspan="5" style="color:var(--muted);padding:20px;text-align:center">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="portfolio-grid" id="portfolio-grid">
+        <div class="empty"><div class="icon">⏳</div>Carregando portfólio...</div>
+      </div>
+    </div>
+
+    <!-- Market Page -->
+    <div class="page" id="page-market">
+      <div class="market-grid" id="market-grid">
+        <div class="market-card"><div class="asset">BTC</div><div class="price" id="m-btc-price">–</div><div class="change" id="m-btc-chg">–</div><div class="sub" id="m-btc-funding">–</div></div>
+        <div class="market-card"><div class="asset">ETH</div><div class="price" id="m-eth-price">–</div><div class="change" id="m-eth-chg">–</div><div class="sub" id="m-eth-funding">–</div></div>
+        <div class="market-card"><div class="asset">HYPE</div><div class="price" id="m-hype-price">–</div><div class="change" id="m-hype-funding">–</div><div class="sub">perp — Hyperliquid</div></div>
+        <div class="market-card"><div class="asset">BTC Dom.</div><div class="price" id="m-dom">–</div><div class="change" style="color:var(--muted);font-size:11px">dominância de mercado</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">Dados CoinGecko + Hyperliquid</div>
+        <button class="btn btn-ghost" onclick="loadMarket(); loadHLMarket()">↻ Atualizar dados</button>
+      </div>
+    </div>
+
+    <!-- News Page -->
+    <div class="page" id="page-news">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Notícias Crypto</div>
+          <button class="btn btn-ghost" onclick="loadNews()">↻ Atualizar</button>
+        </div>
+        <div class="news-list" id="news-list">
+          <div class="empty"><div class="icon">⏳</div>Carregando notícias...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Page -->
+    <div class="page" id="page-chat">
+      <div class="agent-tabs" id="agent-tabs">
+        <div class="agent-tab active" onclick="setAgent('lux')" id="tab-lux">🌟 Lux</div>
+        <div class="agent-tab" onclick="setAgent('hype_beast')" id="tab-hype_beast">🐂 Hype Beast</div>
+        <div class="agent-tab" onclick="setAgent('oracle')" id="tab-oracle">🔮 Oracle</div>
+        <div class="agent-tab" onclick="setAgent('vitalik')" id="tab-vitalik">💎 Vitalik</div>
+      </div>
+      <div class="chat-layout">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-area">
+          <textarea class="chat-input" id="chat-input" rows="2" placeholder="Digite sua mensagem..." onkeydown="handleKey(event)"></textarea>
+          <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory Page -->
+    <div class="page" id="page-memory">
+      <div class="agent-tabs">
+        <div class="agent-tab active" onclick="loadMemory('lux')" id="mtab-lux">🌟 Lux</div>
+        <div class="agent-tab" onclick="loadMemory('hype_beast')" id="mtab-hype_beast">🐂 Hype Beast</div>
+        <div class="agent-tab" onclick="loadMemory('oracle')" id="mtab-oracle">🔮 Oracle</div>
+        <div class="agent-tab" onclick="loadMemory('vitalik')" id="mtab-vitalik">💎 Vitalik</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="memory-agent-title">MEMORY.md — lux</div>
+          <button class="btn btn-ghost" onclick="loadMemory(currentMemoryAgent)">↻ Atualizar</button>
+        </div>
+        <div class="memory-content" id="memory-content">Carregando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Modal -->
+<div class="modal-overlay" id="order-modal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-title-text">Executar Ordem</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="warning-box">
+      ⚠ Esta ordem será executada na Hyperliquid Mainnet com fundos reais. Confirme os dados antes de prosseguir.
+    </div>
+    <div class="form-row">
+      <label class="form-label">Agente</label>
+      <input class="form-input" id="modal-agent" readonly>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Ativo</label>
+        <input class="form-input" id="modal-coin" placeholder="BTC">
+      </div>
+      <div>
+        <label class="form-label">Tamanho</label>
+        <input class="form-input" id="modal-size" type="number" step="any" placeholder="0.001">
+      </div>
+    </div>
+    <div class="form-row" id="modal-price-row" style="display:none">
+      <label class="form-label">Preço Limite</label>
+      <input class="form-input" id="modal-price" type="number" step="any" placeholder="0.00">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost modal-actions" onclick="closeModal()" style="flex:1">Cancelar</button>
+      <button class="btn btn-buy" id="modal-buy-btn" onclick="submitOrder(true)" style="flex:1">🟢 Comprar</button>
+      <button class="btn btn-sell" id="modal-sell-btn" onclick="submitOrder(false)" style="flex:1">🔴 Vender</button>
+    </div>
+  </div>
+</div>
+
+<!-- Close Position Modal -->
+<div class="modal-overlay" id="close-modal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="close-modal-title">Fechar Posição</span>
+      <button class="modal-close" onclick="closeCloseModal()">✕</button>
+    </div>
+    <div class="warning-box">
+      ⚠ Isso vai fechar a posição com uma ordem de mercado na Hyperliquid Mainnet.
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px" id="close-modal-info"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCloseModal()" style="flex:1">Cancelar</button>
+      <button class="btn btn-sell" onclick="confirmClosePosition()" style="flex:1">Confirmar Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let currentPage = 'heartbeat';
+let currentAgent = 'lux';
+let currentMemoryAgent = 'lux';
+let isSending = false;
+let pendingOrder = null;
+let pendingClose = null;
+const agentEmojis = { lux: '🌟', hype_beast: '🐂', oracle: '🔮', vitalik: '💎' };
+const agentNames = { lux: 'Lux', hype_beast: 'Hype Beast', oracle: 'Oracle', vitalik: 'Vitalik' };
+const agentCoins = { hype_beast: 'HYPE', oracle: 'BTC', vitalik: 'ETH' };
+const pageTitles = {
+  heartbeat: '📊 Heartbeat',
+  portfolio: '💼 Portfólio',
+  market: '📈 Mercado',
+  news: '📰 Notícias',
+  chat: '💬 Chat',
+  memory: '🧠 Memória',
+};
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[name] || name;
+  currentPage = name;
+
+  document.getElementById('hb-btn').style.display = name === 'heartbeat' ? 'inline-block' : 'none';
+  document.getElementById('hb-interval-select').style.display = name === 'heartbeat' ? 'inline-block' : 'none';
+  document.getElementById('tg-btn').style.display = name === 'heartbeat' ? 'inline-block' : 'none';
+  document.getElementById('portfolio-refresh-btn').style.display = name === 'portfolio' ? 'inline-block' : 'none';
+  if (name === 'heartbeat') loadHeartbeatInterval();
+
+  if (name === 'heartbeat') loadHeartbeats();
+  if (name === 'portfolio') { loadPortfolio(); loadTechnical(); loadHLMarket(); }
+  if (name === 'market') { loadMarket(); loadHLMarket(); }
+  if (name === 'news') loadNews();
+  if (name === 'chat') loadChatHistory();
+  if (name === 'memory') loadMemory(currentMemoryAgent);
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const oc = item.getAttribute('onclick') || '';
+    if (oc.includes(`'${name}'`)) item.classList.add('active');
+  });
+}
+
+// ── Market (CoinGecko) ──────────────────────────────────────────────────────
+async function loadMarket() {
+  try {
+    const d = await api('/api/market');
+    document.getElementById('t-btc').textContent = '$' + fmt(d.btc_price);
+    document.getElementById('t-eth').textContent = '$' + fmt(d.eth_price);
+    document.getElementById('t-dom').textContent = d.btc_dominance + '%';
+    document.getElementById('m-btc-price').textContent = '$' + fmt(d.btc_price);
+    document.getElementById('m-eth-price').textContent = '$' + fmt(d.eth_price);
+    document.getElementById('m-dom').textContent = d.btc_dominance + '%';
+    const btcChg = document.getElementById('m-btc-chg');
+    btcChg.textContent = (d.btc_change_24h >= 0 ? '+' : '') + d.btc_change_24h + '% 24h';
+    btcChg.className = 'change ' + (d.btc_change_24h >= 0 ? 'pos' : 'neg');
+    const ethChg = document.getElementById('m-eth-chg');
+    ethChg.textContent = (d.eth_change_24h >= 0 ? '+' : '') + d.eth_change_24h + '% 24h';
+    ethChg.className = 'change ' + (d.eth_change_24h >= 0 ? 'pos' : 'neg');
+  } catch(e) { console.error('market', e); }
+}
+
+// ── Market (Hyperliquid) ────────────────────────────────────────────────────
+async function loadHLMarket() {
+  try {
+    const d = await api('/api/hl/market');
+    if (d.error) return;
+    // Sidebar
+    document.getElementById('t-btc').textContent = '$' + fmt2(d.btc_price);
+    document.getElementById('t-eth').textContent = '$' + fmt2(d.eth_price);
+    document.getElementById('t-hype').textContent = '$' + fmtPrice(d.hype_price);
+    // Market page
+    document.getElementById('m-btc-price').textContent = '$' + fmt2(d.btc_price);
+    document.getElementById('m-eth-price').textContent = '$' + fmt2(d.eth_price);
+    document.getElementById('m-hype-price').textContent = '$' + fmtPrice(d.hype_price);
+    document.getElementById('m-btc-funding').textContent = 'Funding: ' + fmtFunding(d.btc_funding) + '/h';
+    document.getElementById('m-eth-funding').textContent = 'Funding: ' + fmtFunding(d.eth_funding) + '/h';
+    document.getElementById('m-hype-funding').textContent = 'Funding: ' + fmtFunding(d.hype_funding) + '/h';
+    // Funding table
+    const coins = ['btc', 'eth', 'hype'];
+    const labels = ['BTC', 'ETH', 'HYPE'];
+    const tbody = document.getElementById('funding-tbody');
+    if (tbody) {
+      tbody.innerHTML = coins.map((c, i) => {
+        const f = d[c + '_funding'] || 0;
+        const fClass = f > 0 ? 'funding-pos' : (f < 0 ? 'funding-neg' : 'funding-zero');
+        const fSign = f > 0 ? '+' : '';
+        return `<tr>
+          <td><strong>${labels[i]}</strong></td>
+          <td>$${fmt2(d[c + '_mark_price'] || 0)}</td>
+          <td class="${fClass}">${fSign}${(f * 100).toFixed(4)}%</td>
+          <td>$${fmtB(d[c + '_oi'] || 0)}</td>
+          <td>$${fmtB(d[c + '_volume_24h'] || 0)}</td>
+        </tr>`;
+      }).join('');
+    }
+  } catch(e) { console.error('hl market', e); }
+}
+
+// ── Technical (RSI + EMA) ───────────────────────────────────────────────────
+async function loadTechnical() {
+  try {
+    const tech = await api('/api/hl/technical');
+    ['BTC', 'ETH', 'HYPE'].forEach(coin => {
+      const d = tech[coin];
+      if (!d) return;
+      const rsiEl = document.getElementById('tech-rsi-' + coin);
+      const labelEl = document.getElementById('tech-label-' + coin);
+      const emaEl = document.getElementById('tech-ema-' + coin);
+      const trendEl = document.getElementById('tech-trend-' + coin);
+      if (!rsiEl) return;
+      const rsi = d.rsi_14 || 50;
+      rsiEl.textContent = rsi.toFixed(1);
+      rsiEl.className = 'tech-rsi ' + (rsi >= 70 ? 'overbought' : rsi <= 30 ? 'oversold' : 'neutral');
+      if (rsi >= 70) labelEl.textContent = 'SOBRECOMPRA';
+      else if (rsi <= 30) labelEl.textContent = 'SOBREVENDA';
+      else labelEl.textContent = 'RSI(14) neutro';
+      emaEl.textContent = d.ema9 ? `EMA9: ${fmtPrice(d.ema9)}` : 'EMA: –';
+      const trend = d.trend_ema || 'BEAR';
+      trendEl.textContent = trend === 'BULL' ? '↑ BULL' : '↓ BEAR';
+      trendEl.className = trend === 'BULL' ? 'tech-trend-bull' : 'tech-trend-bear';
+    });
+  } catch(e) { console.error('technical', e); }
+}
+
+// ── Portfolio ───────────────────────────────────────────────────────────────
+async function loadPortfolio() {
+  const grid = document.getElementById('portfolio-grid');
+  grid.innerHTML = '<div class="empty"><div class="icon">⏳</div>Carregando contas...</div>';
+  try {
+    const accounts = await api('/api/hl/portfolio');
+    if (!accounts.length) { grid.innerHTML = '<div class="empty">Sem dados de conta</div>'; return; }
+    grid.innerHTML = accounts.map(a => renderAgentCard(a)).join('');
+  } catch(e) {
+    grid.innerHTML = `<div class="empty"><div class="icon">❌</div>Erro: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderAgentCard(a) {
+  const emoji = agentEmojis[a.agent_id] || '🤖';
+  const name = agentNames[a.agent_id] || a.agent_id;
+  const coin = agentCoins[a.agent_id] || '?';
+  if (a.error) {
+    return `<div class="agent-card">
+      <div class="agent-card-header">
+        <div class="agent-card-name">${emoji} ${name}</div>
+        <span style="font-size:10px;color:var(--muted)">${coin}</span>
+      </div>
+      <div class="error-text">Erro: ${esc(a.error)}</div>
+    </div>`;
+  }
+  const pnl = a.total_pnl || 0;
+  const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+  const pnlSign = pnl >= 0 ? '+' : '';
+  const positions = a.positions || [];
+  const posHTML = positions.length
+    ? positions.map(p => `
+        <div class="position-row">
+          <div class="position-left">
+            <span class="pos-coin">${esc(p.coin)}</span>
+            <span class="pos-badge ${p.side}">${p.side.toUpperCase()}</span>
+            <span class="pos-size">${Math.abs(p.size)}</span>
+          </div>
+          <div class="position-right">
+            <span class="pos-pnl ${p.unrealized_pnl >= 0 ? 'pos' : 'neg'}">${p.unrealized_pnl >= 0 ? '+' : ''}$${p.unrealized_pnl.toFixed(2)}</span>
+            <button class="btn-sm btn-sell" onclick="openCloseModal('${a.agent_id}','${p.coin}',${Math.abs(p.size)})">Fechar</button>
+          </div>
+        </div>`).join('')
+    : '<div class="no-positions">Sem posições abertas</div>';
+
+  const spotUsdc = a.spot_usdc || 0;
+  const totalVal = a.total_value || a.account_value || 0;
+  const perpVal  = a.account_value || 0;
+  const hasSpot  = spotUsdc > 0;
+
+  return `<div class="agent-card">
+    <div class="agent-card-header">
+      <div class="agent-card-name">${emoji} ${name}</div>
+      <span style="font-size:10px;color:var(--muted)">${coin}/USDC</span>
+    </div>
+    <div class="agent-balance">$${fmtDec(totalVal)}</div>
+    <div style="display:flex;gap:8px;justify-content:center;font-size:10px;color:var(--muted);margin:-4px 0 4px">
+      <span>Perp: $${fmtDec(perpVal)}</span>
+      <span style="opacity:.4">|</span>
+      <span style="color:${hasSpot ? 'var(--positive)' : 'inherit'}">Spot: $${fmtDec(spotUsdc)}</span>
+    </div>
+    <div class="agent-pnl" style="color:var(--${pnlClass === 'pos' ? 'positive' : 'negative'})">${pnlSign}$${Math.abs(pnl).toFixed(2)} PnL</div>
+    <div class="agent-stats">
+      <div class="agent-stat">
+        <div class="agent-stat-label">Margin Used</div>
+        <div class="agent-stat-val">$${fmtDec(a.total_margin_used)}</div>
+      </div>
+      <div class="agent-stat">
+        <div class="agent-stat-label">Withdrawable</div>
+        <div class="agent-stat-val">$${fmtDec(a.withdrawable)}</div>
+      </div>
+    </div>
+    <div class="positions-section">
+      <div class="positions-label">Posições (${positions.length})</div>
+      ${posHTML}
+    </div>
+    <div class="agent-actions">
+      <button class="btn btn-sm btn-buy" style="flex:1" onclick="openOrderModal('${a.agent_id}', '${coin}')">+ Abrir Long</button>
+      <button class="btn btn-sm btn-sell" style="flex:1" onclick="openOrderModal('${a.agent_id}', '${coin}', false)">+ Abrir Short</button>
+    </div>
+  </div>`;
+}
+
+// ── Order Modal ─────────────────────────────────────────────────────────────
+function openOrderModal(agentId, coin, isBuy = null) {
+  document.getElementById('modal-agent').value = agentNames[agentId] || agentId;
+  document.getElementById('modal-coin').value = coin || agentCoins[agentId] || '';
+  document.getElementById('modal-size').value = '';
+  document.getElementById('modal-price').value = '';
+  document.getElementById('modal-price-row').style.display = 'none';
+  document.getElementById('modal-title-text').textContent = `Ordem — ${agentNames[agentId]}`;
+  pendingOrder = { agentId };
+  document.getElementById('order-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('order-modal').classList.remove('open');
+  pendingOrder = null;
+}
+
+async function submitOrder(isBuy) {
+  if (!pendingOrder) return;
+  const agentId = pendingOrder.agentId;
+  const coin = document.getElementById('modal-coin').value.trim().toUpperCase();
+  const size = parseFloat(document.getElementById('modal-size').value);
+  if (!coin || !size || size <= 0) { showToast('Preencha ativo e tamanho', true); return; }
+
+  const btn = isBuy ? document.getElementById('modal-buy-btn') : document.getElementById('modal-sell-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+
+  try {
+    const result = await api(`/api/hl/order/${agentId}/market`, 'POST', { coin, is_buy: isBuy, size, slippage: 0.01 });
+    closeModal();
+    showToast(`✅ Ordem enviada: ${isBuy ? 'LONG' : 'SHORT'} ${size} ${coin}`);
+    setTimeout(() => loadPortfolio(), 2000);
+  } catch(e) {
+    showToast(`❌ Erro: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isBuy ? '🟢 Comprar' : '🔴 Vender';
+  }
+}
+
+// ── Close Position Modal ────────────────────────────────────────────────────
+function openCloseModal(agentId, coin, size) {
+  pendingClose = { agentId, coin, size };
+  document.getElementById('close-modal-title').textContent = `Fechar ${coin} — ${agentNames[agentId]}`;
+  document.getElementById('close-modal-info').textContent = `Agente: ${agentNames[agentId]} | Ativo: ${coin} | Tamanho: ${size}`;
+  document.getElementById('close-modal').classList.add('open');
+}
+
+function closeCloseModal() {
+  document.getElementById('close-modal').classList.remove('open');
+  pendingClose = null;
+}
+
+async function confirmClosePosition() {
+  if (!pendingClose) return;
+  const { agentId, coin, size } = pendingClose;
+  try {
+    await api(`/api/hl/order/${agentId}/close`, 'POST', { coin, size });
+    closeCloseModal();
+    showToast(`✅ Posição fechada: ${coin}`);
+    setTimeout(() => loadPortfolio(), 2000);
+  } catch(e) {
+    showToast(`❌ Erro: ${e.message}`, true);
+  }
+}
+
+// ── News ────────────────────────────────────────────────────────────────────
+async function loadNews() {
+  try {
+    const news = await api('/api/news');
+    const el = document.getElementById('news-list');
+    if (!news.length) { el.innerHTML = '<div class="empty"><div class="icon">📭</div>Sem notícias</div>'; return; }
+    el.innerHTML = news.map(n => `
+      <div class="news-item">
+        <span class="news-sentiment">${sentimentIcon(n.sentiment)}</span>
+        <div>
+          <div class="news-title"><a href="${n.url}" target="_blank" style="color:var(--text);text-decoration:none">${esc(n.title)}</a></div>
+          <div class="news-source">${esc(n.source)} · ${fmtDate(n.published_at)}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error('news', e); }
+}
+
+function sentimentIcon(s) {
+  return { positive: '🟢', negative: '🔴', neutral: '⚪' }[s] || '⚪';
+}
+
+// ── Heartbeat ───────────────────────────────────────────────────────────────
+async function loadHeartbeats() {
+  try {
+    const reports = await api('/api/heartbeat/history?limit=30');
+    const el = document.getElementById('report-list');
+    if (!reports.length) {
+      el.innerHTML = '<div class="empty"><div class="icon">📭</div>Nenhum relatório ainda. Dispare o primeiro heartbeat!</div>';
+      return;
+    }
+    el.innerHTML = reports.map(r => renderReport(r)).join('');
+  } catch(e) { console.error('heartbeat history', e); }
+}
+
+function renderReport(r) {
+  const icon = { COMPRAR: '🟢', VENDER: '🔴', AGUARDAR: '🟡' }[r.lux_decision] || '⚪';
+  const badgeClass = { COMPRAR: 'badge-buy', VENDER: 'badge-sell', AGUARDAR: 'badge-hold' }[r.lux_decision] || '';
+  const mkt = r.market_data || {};
+  const btc = mkt.btc_price ? '$' + fmt2(mkt.btc_price) : '';
+  const id = 'r' + r.id;
+  return `
+    <div class="report-item" onclick="toggleExpand('${id}')">
+      <div class="report-decision">${icon}</div>
+      <div class="report-body">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${badgeClass}">${r.lux_decision}</span>
+          ${r.asset && r.asset !== 'none' ? `<span style="font-size:12px;color:var(--muted)">${r.asset} ${r.direction || ''}</span>` : ''}
+        </div>
+        <div class="report-time">${fmtDate(r.created_at)}</div>
+        <div class="report-btc">${btc}</div>
+        <div class="report-traders">
+          <span class="trader-signal">🐂 ${extractSignal(r.hype_analysis)}</span>
+          <span class="trader-signal">🔮 ${extractSignal(r.oracle_analysis)}</span>
+          <span class="trader-signal">💎 ${extractSignal(r.vitalik_analysis)}</span>
+        </div>
+        <div class="report-expanded" id="${id}">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">Decisão Lux:</div>
+          <pre>${esc(r.lux_raw || '')}</pre>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function extractSignal(analysis) {
+  if (!analysis) return '–';
+  try { const m = analysis.match(/"sinal"\s*:\s*"(\w+)"/); if (m) return m[1].toUpperCase(); } catch {}
+  return '–';
+}
+
+async function triggerHeartbeat() {
+  const btn = document.getElementById('hb-btn');
+  btn.disabled = true; btn.textContent = '⏳ Analisando...';
+  try {
+    const report = await api('/api/heartbeat/trigger', 'POST');
+    loadHeartbeats();
+    showToast(`✅ Decisão: ${report.decision} | ${report.asset}`);
+  } catch(e) { showToast('❌ Erro: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = '🔔 Disparar Heartbeat'; }
+}
+
+async function loadHeartbeatInterval() {
+  try {
+    const data = await api('/api/settings/heartbeat');
+    const sel = document.getElementById('hb-interval-select');
+    if (sel) sel.value = String(data.interval_min);
+  } catch(e) {}
+}
+
+async function setHeartbeatInterval(minutes) {
+  try {
+    await api('/api/settings/heartbeat', 'POST', { interval_min: parseInt(minutes) });
+    showToast(`⏱ Heartbeat: a cada ${minutes} min`);
+  } catch(e) { showToast('❌ Erro ao alterar intervalo', true); }
+}
+
+async function sendTelegramReport() {
+  const btn = document.getElementById('tg-btn');
+  btn.disabled = true; btn.textContent = '⏳...';
+  try {
+    const r = await api('/api/telegram/report', 'POST');
+    showToast(r.sent ? '📨 Relatório enviado no Telegram!' : '⚠️ Telegram não configurado');
+  } catch(e) { showToast('❌ Erro Telegram: ' + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = '📨 Telegram'; }
+}
+
+// ── Chat ────────────────────────────────────────────────────────────────────
+function setAgent(id) {
+  currentAgent = id;
+  document.querySelectorAll('.agent-tab[id^="tab-"]').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + id);
+  if (tab) tab.classList.add('active');
+  loadChatHistory();
+  document.getElementById('page-title').textContent = `💬 ${agentEmojis[id]} ${agentNames[id]}`;
+}
+
+async function loadChatHistory() {
+  try {
+    const msgs = await api(`/api/chat/${currentAgent}/history?limit=30`);
+    const el = document.getElementById('chat-messages');
+    if (!msgs.length) { el.innerHTML = `<div class="empty"><div class="icon">${agentEmojis[currentAgent]}</div>Inicie uma conversa</div>`; return; }
+    el.innerHTML = msgs.map(m => renderMessage(m.role, m.content, m.created_at)).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) { console.error('chat history', e); }
+}
+
+function renderMessage(role, content, ts) {
+  const isUser = role === 'user';
+  const avatar = isUser ? '👤' : agentEmojis[currentAgent];
+  return `<div class="message ${role}">
+    <div class="message-avatar">${avatar}</div>
+    <div>
+      <div class="message-bubble">${esc(content)}</div>
+      ${ts ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:${isUser?'right':'left'}">${fmtDate(ts)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+async function sendMessage() {
+  if (isSending) return;
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = ''; isSending = true;
+  document.getElementById('send-btn').disabled = true;
+  const el = document.getElementById('chat-messages');
+  const empty = el.querySelector('.empty'); if (empty) empty.remove();
+  el.insertAdjacentHTML('beforeend', renderMessage('user', msg, new Date().toISOString()));
+  el.scrollTop = el.scrollHeight;
+  const bubbleId = 'streaming-' + Date.now();
+  el.insertAdjacentHTML('beforeend', `<div class="message assistant" id="${bubbleId}"><div class="message-avatar">${agentEmojis[currentAgent]}</div><div><div class="message-bubble" id="${bubbleId}-text"><span class="loading-dots">Pensando</span></div></div></div>`);
+  el.scrollTop = el.scrollHeight;
+  try {
+    const response = await fetch(`/api/chat/${currentAgent}/stream`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message: msg}) });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const textEl = document.getElementById(bubbleId + '-text');
+    let fullText = '', started = false;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of decoder.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') break;
+        try {
+          const d = JSON.parse(payload);
+          if (d.error) { textEl.textContent = '❌ ' + d.error; break; }
+          if (d.text) { if (!started) { textEl.textContent = ''; started = true; } fullText += d.text; textEl.textContent = fullText; el.scrollTop = el.scrollHeight; }
+        } catch {}
+      }
+    }
+  } catch(e) { document.getElementById(bubbleId + '-text').textContent = '❌ Erro de conexão'; }
+  finally { isSending = false; document.getElementById('send-btn').disabled = false; input.focus(); }
+}
+
+// ── Memory ──────────────────────────────────────────────────────────────────
+async function loadMemory(agentId) {
+  currentMemoryAgent = agentId;
+  document.querySelectorAll('.agent-tab[id^="mtab-"]').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('mtab-' + agentId); if (tab) tab.classList.add('active');
+  document.getElementById('memory-agent-title').textContent = `MEMORY.md — ${agentId}`;
+  try {
+    const d = await api(`/api/agents/${agentId}/memory`);
+    document.getElementById('memory-content').innerHTML = mdToHtml(d.memory || '(vazia)');
+  } catch(e) { document.getElementById('memory-content').textContent = 'Erro: ' + e.message; }
+}
+
+function mdToHtml(md) {
+  return esc(md)
+    .replace(/^## (.+)$/gm, '<strong style="color:var(--accent)">## $1</strong>')
+    .replace(/^# (.+)$/gm, '<strong style="color:var(--text);font-size:14px"># $1</strong>')
+    .replace(/^---$/gm, '<hr style="border-color:var(--border);margin:8px 0">');
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+async function api(url, method = 'GET', body = undefined) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ` + await r.text());
+  return r.json();
+}
+
+function fmt(n) { return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
+function fmt2(n) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtPrice(n) { n = Number(n); if (n < 1) return n.toFixed(4); if (n < 100) return n.toFixed(3); return n.toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+function fmtDec(n) { return Number(n).toFixed(2); }
+function fmtB(n) { if (n > 1e9) return (n/1e9).toFixed(1)+'B'; if (n > 1e6) return (n/1e6).toFixed(1)+'M'; if (n > 1e3) return (n/1e3).toFixed(0)+'K'; return Number(n).toFixed(0); }
+function fmtFunding(f) { const pct = (f * 100).toFixed(4); return (f >= 0 ? '+' : '') + pct + '%'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(s) { if (!s) return ''; try { return new Date(s).toLocaleString('pt-BR', {dateStyle:'short',timeStyle:'short'}); } catch { return s.substring(0,16).replace('T',' '); } }
+
+let toastTimeout;
+function showToast(msg, isError = false) {
+  let toast = document.getElementById('toast');
+  if (!toast) { toast = document.createElement('div'); toast.id = 'toast'; toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;z-index:9999;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.4)'; document.body.appendChild(toast); }
+  toast.textContent = msg;
+  toast.style.borderColor = isError ? 'var(--sell)' : 'var(--buy)';
+  toast.style.display = 'block';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 5000);
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPage('heartbeat');
+  loadMarket();
+  loadHLMarket();
+  setInterval(() => { loadHLMarket(); loadMarket(); }, 30000);
+});
+</script>
+</body>
+</html>
