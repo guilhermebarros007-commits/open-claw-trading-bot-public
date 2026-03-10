@@ -4,6 +4,7 @@ from typing import AsyncIterator
 import google.generativeai as genai
 from pathlib import Path
 from datetime import datetime
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.memory import db as memory_db
 
 logger = logging.getLogger(__name__)
@@ -235,12 +236,20 @@ class GeminiBaseAgent(BaseAgent):
         )
         chat_session = model_with_sys.start_chat(history=history)
         
-        response = await chat_session.send_message_async(
-            full_message,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=self._max_tokens
-            )
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            reraise=True
         )
+        async def _send_with_retry():
+            return await chat_session.send_message_async(
+                full_message,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=self._max_tokens
+                )
+            )
+
+        response = await _send_with_retry()
         reply = response.text
 
         await memory_db.save_message(self.agent_id, "user", full_message)
@@ -251,17 +260,27 @@ class GeminiBaseAgent(BaseAgent):
         """Robustly extracts JSON from potentially noisy LLM output."""
         import re
         import json
+        if not text:
+            return {}
         try:
             # Try plain parse first
             return json.loads(text)
         except Exception:
             # Try finding the first { and last }
+            # Use a more careful match to handle nested structures
             match = re.search(r"(\{.*\})", text, re.DOTALL)
             if match:
+                content = match.group(1)
                 try:
-                    return json.loads(match.group(1))
+                    return json.loads(content)
                 except Exception:
-                    pass
+                    # Clean up common LLM artifacts if simple JSON fails
+                    content = re.sub(r"//.*", "", content) # remove comments
+                    try:
+                        return json.loads(content)
+                    except Exception:
+                        pass
+        logger.warning(f"[{self.agent_id}] Failed to extract JSON from: {text[:100]}...")
         return {}
 
     async def stream_chat(

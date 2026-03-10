@@ -41,6 +41,20 @@ async def send_message(text: str) -> bool:
         return False
 
 
+async def send_alert(title: str, message: str, level: str = "ERROR") -> bool:
+    """Send a critical alert to Telegram with clear visual marking."""
+    icons = {"ERROR": "🚨", "WARNING": "⚠️", "CRITICAL": "🧱"}
+    icon = icons.get(level, "🚨")
+    
+    text = (
+        f"{icon} <b>SISTEMA - {level}</b> {icon}\n"
+        f"<b>{title}</b>\n\n"
+        f"<i>{message}</i>\n\n"
+        f"🕐 {datetime.utcnow().strftime('%H:%M:%S UTC')}"
+    )
+    return await send_message(text)
+
+
 async def send_daily_report() -> bool:
     """
     Build and send the daily performance report.
@@ -104,7 +118,7 @@ async def send_daily_report() -> bool:
         f"",
         f"💼 <b>Total portfólio: ${total_portfolio:.2f}</b>",
         f"",
-        f"🔗 Dashboard: http://localhost:8000",
+        f"🔗 Dashboard: http://72.60.146.212:8001",
     ]
 
     message = "\n".join(lines)

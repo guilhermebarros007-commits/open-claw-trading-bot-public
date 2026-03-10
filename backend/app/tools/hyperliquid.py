@@ -11,6 +11,8 @@ import logging
 import os
 import time
 from datetime import datetime
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,12 @@ def _get_info():
 
 # ── HTTP helper (replaces SDK Info — works on both mainnet and testnet) ────────
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+    reraise=True
+)
 async def _hl_post(payload: dict):
     """POST to Hyperliquid /info — direct HTTP, avoids SDK initialisation bugs."""
     import httpx
@@ -408,11 +416,17 @@ async def execute_market_open(
     slippage: float = 0.01,
 ) -> dict:
     """Open a market position."""
-    try:
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True
+    )
+    def _do_open():
         exchange = get_exchange(agent_id)
-        result = await asyncio.to_thread(
-            exchange.market_open, coin, is_buy, size, None, slippage
-        )
+        return exchange.market_open(coin, is_buy, size, None, slippage)
+
+    try:
+        result = await asyncio.to_thread(_do_open)
         logger.info(f"[{agent_id}] market_open {coin} {'BUY' if is_buy else 'SELL'} {size} → {result}")
         return {"success": True, "agent_id": agent_id, "coin": coin, "result": result}
     except Exception as e:
@@ -429,11 +443,17 @@ async def execute_market_close(
     slippage: float = 0.01,
 ) -> dict:
     """Close a market position (fully or partially)."""
-    try:
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True
+    )
+    def _do_close():
         exchange = get_exchange(agent_id)
-        result = await asyncio.to_thread(
-            exchange.market_close, coin, size, None, slippage
-        )
+        return exchange.market_close(coin, size, None, slippage)
+
+    try:
+        result = await asyncio.to_thread(_do_close)
         logger.info(f"[{agent_id}] market_close {coin} size={size} → {result}")
         return {"success": True, "agent_id": agent_id, "coin": coin, "result": result}
     except Exception as e:
@@ -498,15 +518,23 @@ async def execute_trigger_order(
             }
         }
         
-        result = await asyncio.to_thread(
-            exchange.order,
-            coin,
-            is_buy,
-            size,
-            trigger_px,
-            trigger_params,
-            True, # reduce_only MUST be true for automated SL/TP
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            reraise=True
         )
+        def _do_trigger():
+            exchange = get_exchange(agent_id)
+            return exchange.order(
+                coin,
+                is_buy,
+                size,
+                trigger_px,
+                trigger_params,
+                True, # reduce_only MUST be true for automated SL/TP
+            )
+
+        result = await asyncio.to_thread(_do_trigger)
         logger.info(f"🛡️ [{agent_id}] Native {order_type.upper()} set for {coin} @ {trigger_px}")
         return {"success": True, "result": result}
     except Exception as e:

@@ -4,6 +4,8 @@ import logging
 import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List
 
 from app.agents.base import BaseAgent, GeminiBaseAgent
 from app.tools.market import format_market_summary
@@ -22,6 +24,28 @@ from app.tools.hyperliquid import (
     update_sl_trigger,
 )
 from app import agents as registry_module
+
+class LuxDecision(BaseModel):
+    decisao: str = Field(..., description="COMPRAR, VENDER, HOLD ou trailing_stop")
+    ativo_prioritario: str = Field(..., description="BTC, ETH, HYPE ou none")
+    direcao: str = Field(..., description="long, short ou none")
+    total_confidence: float = Field(default=0.0, ge=0.0, le=10.0)
+    consensus_reached: bool = Field(default=False)
+    justificativa: str = Field(..., min_length=10)
+
+    @validator("decisao")
+    def validate_decisao(cls, v):
+        v = v.lower()
+        if any(k in v for k in ["executar", "comprar", "buy"]): return "COMPRAR"
+        if any(k in v for k in ["vender", "sell"]): return "VENDER"
+        if "trailing" in v or "stop" in v: return "trailing_stop"
+        return "AGUARDAR"
+
+    @validator("ativo_prioritario")
+    def validate_ativo(cls, v):
+        v = v.upper()
+        if v in ["BTC", "ETH", "HYPE"]: return v
+        return "NONE"
 
 logger = logging.getLogger(__name__)
 
@@ -68,27 +92,34 @@ def _extract_decision(lux_response: str) -> tuple[str, str, str]:
     return "AGUARDAR", "none", "none"
 
 
-def _extract_gold_decision(lux_response: str) -> tuple[str, str, str, dict]:
-    """Extract decision and consensus metadata from Lux Gold Standard response."""
+def _extract_gold_decision(lux_response: str, agent) -> tuple[str, str, str, dict]:
+    """Extract decision and consensus metadata from Lux Response using Pydantic."""
     try:
-        # Improved JSON extraction to handle nested objects and confidence
-        match = re.search(r'(\{.*\})', lux_response, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            decisao = data.get("decisao", "hold").lower()
-            ativo = data.get("ativo_prioritario", "none")
-            direcao = data.get("direcao", "none")
-            
-            decision = "AGUARDAR"
-            if any(k in decisao for k in ["executar", "comprar", "buy"]):
-                decision = "COMPRAR"
-            elif any(k in decisao for k in ["vender", "sell"]):
-                decision = "VENDER"
-                
-            return decision, ativo, direcao, data
-    except Exception:
-        pass
-    return "AGUARDAR", "none", "none", {}
+        data = agent._extract_json(lux_response)
+        if not data:
+            return "AGUARDAR", "none", "none", {}
+        
+        # Validar via Pydantic
+        validated = LuxDecision(**data)
+        
+        return (
+            validated.decisao,
+            validated.ativo_prioritario,
+            validated.direcao,
+            validated.dict()
+        )
+    except Exception as e:
+        logger.warning(f"Pydantic validation failed for Lux: {e}")
+        # Fallback para extração bruta se Pydantic falhar mas houver JSON
+        try:
+             data = agent._extract_json(lux_response)
+             decisao = data.get("decisao", "hold").lower()
+             decision = "AGUARDAR"
+             if any(k in decisao for k in ["executar", "comprar", "buy"]): decision = "COMPRAR"
+             elif any(k in decisao for k in ["vender", "sell"]): decision = "VENDER"
+             return decision, data.get("ativo_prioritario", "none"), data.get("direcao", "none"), data
+        except:
+             return "AGUARDAR", "none", "none", {}
 
 
 def _build_market_brief(
@@ -205,17 +236,13 @@ class LuxAgent(GeminiBaseAgent):
             "1. Verifique se há concordância de direção entre pelo menos 2 traders OU se um sinal tem confianca > 8.0.\n"
             "2. Calcule 'total_confidence' como a média das confianças dos traders que concordam com o sinal.\n"
             "3. Se houver divergência total (um compra outro vende o mesmo ativo), a decisão deve ser HOLD.\n"
+            "Responda EXCLUSIVAMENTE em formato JSON que siga este modelo:\n"
+            '{"decisao": "COMPRAR/VENDER/HOLD/trailing_stop", "ativo_prioritario": "BTC/ETH/HYPE", "direcao": "long/short", "total_confidence": 0-10, "consensus_reached": true/false, "justificativa": "detalhes"}'
         )
         lux_raw = await self.chat(aggregate_prompt)
 
         # ── Extraction with Gold Standard Consensus ──────────────────────────
-        decision, asset, direction, lux_data = _extract_gold_decision(lux_raw)
-        # Use robust extraction from base class if raw extraction failed
-        if not lux_data:
-             lux_data = self._extract_json(lux_raw)
-             decision = lux_data.get("decisao", "AGUARDAR").upper()
-             asset = lux_data.get("ativo_prioritario", "none").upper()
-             direction = lux_data.get("direcao", "none")
+        decision, asset, direction, lux_data = _extract_gold_decision(lux_raw, self)
 
         total_confidence = lux_data.get("total_confidence", 0)
         consensus = lux_data.get("consensus_reached", False) or (decision != "AGUARDAR")

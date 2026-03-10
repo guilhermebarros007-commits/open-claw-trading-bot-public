@@ -1,12 +1,15 @@
 import asyncio
 import logging
 import os
+import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
-scheduler = AsyncIOScheduler()
+# Usar fuso horário de São Paulo como padrão
+DEFAULT_TZ = pytz.timezone("America/Sao_Paulo")
+scheduler = AsyncIOScheduler(timezone=DEFAULT_TZ)
 
 # Current interval (minutes) — exposed so the API can read it
 current_interval_min: int = int(os.getenv("HEARTBEAT_INTERVAL_MIN", "30"))
@@ -68,7 +71,7 @@ def start_scheduler():
 
     scheduler.start()
     logger.info(f"📅 Scheduler iniciado — heartbeat a cada {current_interval_min} minutos")
-    logger.info(f"📨 Relatório Telegram diário às {report_hour:02d}:00 UTC")
+    logger.info(f"📨 Relatório Telegram diário às {report_hour:02d}:00 horário local")
 
 
 def stop_scheduler():

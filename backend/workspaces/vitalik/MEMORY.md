@@ -2,6 +2,24 @@
 
 Memória acumulada de análises e decisões macro. Entradas mais recentes no topo.
 
+## [2026-03-10 01:00 UTC]
+- BTC: $69,130 (+4.2% 24h), Dominância: 56.8%
+- Sinal: hold | Confiança: 0.68
+## [2026-03-10 00:30 UTC]
+- BTC: $68,877 (+4.1% 24h), Dominância: 56.7%
+- Sinal: hold | Confiança: 0.65
+## [2026-03-10 00:00 UTC]
+- BTC: $68,460 (+3.5% 24h), Dominância: 56.7%
+- Sinal: hold | Confiança: 0.50
+## [2026-03-09 23:30 UTC]
+- BTC: $68,608 (+3.1% 24h), Dominância: 56.6%
+- Sinal: hold | Confiança: 0.55
+## [2026-03-09 23:05 UTC]
+- BTC: $68,647 (+3.6% 24h), Dominância: 56.6%
+- Sinal: hold | Confiança: 0.58
+## [2026-03-09 23:02 UTC]
+- BTC: $68,647 (+3.6% 24h), Dominância: 56.6%
+- Sinal: hold | Confiança: 0.58
 ## [2026-03-09 20:37 UTC]
 - BTC: $68,892 (+2.2% 24h), Dominância: 56.7%
 - Sinal: hold | Confiança: 0.60
