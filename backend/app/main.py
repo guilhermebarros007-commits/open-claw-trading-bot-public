@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+from collections import deque
 from collections.abc import AsyncIterator
+import asyncio
+import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -35,6 +38,34 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent.parent / "static"
 VALID_AGENTS = ["lux", "hype_beast", "oracle", "vitalik"]
 TRADER_AGENTS = ["hype_beast", "oracle", "vitalik"]
+
+# ── Logging System ────────────────────────────────────────────────────────────
+LOG_QUEUES = []
+LOG_BUFFER = deque(maxlen=100)
+
+class LogStreamHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            log_entry = {
+                "ts": datetime.datetime.now().strftime("%H:%M:%S"),
+                "tag": record.name.split(".")[-1].upper(),
+                "msg": self.format(record),
+                "level": record.levelname
+            }
+            # Add to buffer
+            LOG_BUFFER.append(log_entry)
+            # Broadcast to all active queues
+            for q in LOG_QUEUES:
+                asyncio.run_coroutine_threadsafe(q.put(log_entry), asyncio.get_event_loop())
+        except Exception:
+            pass
+
+# Setup logging to capture app logs
+stream_handler = LogStreamHandler()
+stream_handler.setFormatter(logging.Formatter("%(message)s"))
+logging.getLogger("app").addHandler(stream_handler)
+logging.getLogger("app.agents").addHandler(stream_handler)
+logging.getLogger("app.scheduler").addHandler(stream_handler)
 
 
 @asynccontextmanager
@@ -121,6 +152,16 @@ async def get_heartbeat_interval():
     return {"interval_min": sched.current_interval_min}
 
 
+@app.get("/api/scheduler/next_run")
+async def get_next_run():
+    """Returns the ISO timestamp of the next scheduled heartbeat."""
+    from app.scheduler import scheduler
+    job = scheduler.get_job("heartbeat")
+    if not job or not job.next_run_time:
+        return {"next_run": None}
+    return {"next_run": job.next_run_time.isoformat()}
+
+
 @app.post("/api/telegram/test")
 async def telegram_test():
     """Send a test message to Telegram."""
@@ -182,6 +223,35 @@ async def chat_history(agent_id: str, limit: int = 20):
     if agent_id not in VALID_AGENTS:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
     return await memory_db.get_chat_history(agent_id, limit=limit)
+
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/logs/stream")
+async def logs_stream():
+    """SSE endpoint for real-time terminal logs."""
+    async def event_generator():
+        queue = asyncio.Queue()
+        LOG_QUEUES.append(queue)
+        try:
+            # Send buffer first
+            for entry in list(LOG_BUFFER):
+                yield f"data: {json.dumps(entry)}\n\n"
+            
+            # Streaming
+            while True:
+                log_entry = await queue.get()
+                yield f"data: {json.dumps(log_entry)}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            LOG_QUEUES.remove(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ── Agent Memory ──────────────────────────────────────────────────────────────
