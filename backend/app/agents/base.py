@@ -257,29 +257,35 @@ class GeminiBaseAgent(BaseAgent):
         return reply
 
     def _extract_json(self, text: str) -> dict:
-        """Robustly extracts JSON from potentially noisy LLM output."""
+        """Robustly extracts JSON from potentially noisy LLM output, focusing on the first/last curly braces."""
         import re
         import json
         if not text:
             return {}
+        
+        # Clean up markdown backticks if they wrap the entire text
+        text = text.strip()
+        if text.startswith("```"):
+            # Remove ```json or just ```
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        
         try:
-            # Try plain parse first
             return json.loads(text)
         except Exception:
-            # Try finding the first { and last }
-            # Use a more careful match to handle nested structures
-            match = re.search(r"(\{.*\})", text, re.DOTALL)
-            if match:
-                content = match.group(1)
+            # Fallback: Extract from the first '{' to the last '}'
+            # Using find/rfind is more reliable than greedy regex in some edge cases
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1 and end > start:
+                content = text[start:end+1]
                 try:
-                    return json.loads(content)
-                except Exception:
-                    # Clean up common LLM artifacts if simple JSON fails
-                    content = re.sub(r"//.*", "", content) # remove comments
-                    try:
-                        return json.loads(content)
-                    except Exception:
-                        pass
+                    # Remove potential Javascript comments //
+                    content_clean = re.sub(r"//.*", "", content)
+                    return json.loads(content_clean)
+                except Exception as e:
+                    logger.debug(f"[{self.agent_id}] JSON fallback parse failed: {e}")
+            
         logger.warning(f"[{self.agent_id}] Failed to extract JSON from: {text[:100]}...")
         return {}
 

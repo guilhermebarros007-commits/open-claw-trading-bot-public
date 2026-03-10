@@ -29,6 +29,8 @@ async def _run_heartbeat():
         logger.info(f"✅ Heartbeat concluído — Decisão: {report.decision} | Ativo: {report.asset}")
     except Exception as e:
         logger.error(f"❌ Heartbeat falhou: {e}", exc_info=True)
+        from app.tools.telegram import send_alert
+        await send_alert("Falha no Heartbeat", f"Erro crítico na execução do ciclo de análise: {str(e)}", level="ERROR")
 
 
 async def _run_daily_telegram():
