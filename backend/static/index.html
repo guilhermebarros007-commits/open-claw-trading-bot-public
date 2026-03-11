@@ -4,24 +4,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trading Agents</title>
+  <meta name="description" content="Trading Agents Dashboard — AI-powered crypto trading on Hyperliquid">
+  <title>Trading Agents — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     :root {
-      --bg: #0d0d0f;
-      --surface: #16161a;
-      --surface2: #1e1e24;
-      --border: #2a2a35;
+      --bg: #09090b;
+      --surface: rgba(22, 22, 26, 0.7);
+      --surface2: rgba(30, 30, 36, 0.5);
+      --border: rgba(255, 255, 255, 0.08);
       --accent: #7c6af7;
+      --accent-gradient: linear-gradient(135deg, #7c6af7 0%, #a594ff 100%);
+      --success-gradient: linear-gradient(135deg, #22c55e 0%, #5af7b8 100%);
       --accent2: #5af7b8;
-      --text: #e8e8f0;
-      --muted: #6b6b80;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
       --buy: #22c55e;
       --sell: #ef4444;
       --hold: #f59e0b;
-      --positive: #22c55e;
-      --negative: #ef4444;
-      --neutral: #6b6b80;
-      --radius: 10px;
+      --positive: #34d399;
+      --negative: #f87171;
+      --neutral: #71717a;
+      --radius: 14px;
+      --glass-blur: 16px;
       --terminal-bg: #000000;
       --terminal-text: #b7ff00;
     }
@@ -33,10 +40,11 @@
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
     .app {
@@ -192,8 +200,14 @@
     }
 
     .btn-primary {
-      background: var(--accent);
+      background: var(--accent-gradient);
       color: white;
+      box-shadow: 0 4px 12px rgba(124, 106, 247, 0.3);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.96);
     }
 
     .btn-primary:hover {
@@ -272,9 +286,19 @@
 
     .card {
       background: var(--surface);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 20px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(124, 106, 247, 0.5);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px 0 rgba(124, 106, 247, 0.15);
     }
 
     .card-header {
@@ -304,6 +328,12 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
+      transition: transform 0.3s ease, background 0.3s ease;
+    }
+
+    .market-card:hover {
+      transform: translateY(-2px);
+      background: rgba(40, 40, 48, 0.6);
     }
 
     .market-card .asset {
@@ -350,6 +380,13 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+
+    .agent-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+      border-color: rgba(255,255,255,0.15);
     }
 
     .agent-card-header {
@@ -512,6 +549,13 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .tech-card:hover {
+      background: rgba(40, 40, 48, 0.6);
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
     }
 
     .tech-coin {
@@ -529,10 +573,12 @@
 
     .tech-rsi.overbought {
       color: var(--sell);
+      text-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
     }
 
     .tech-rsi.oversold {
       color: var(--buy);
+      text-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
     }
 
     .tech-rsi.neutral {
@@ -561,6 +607,113 @@
       color: var(--negative);
       font-weight: 600;
     }
+
+    .tech-indicators {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .tech-indicator-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+    }
+
+    .tech-indicator-label {
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .tech-indicator-val {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .confidence-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+
+    /* Charts */
+    .chart-container {
+      width: 100%;
+      height: 200px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .chart-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .chart-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .chart-coin-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .chart-coin-price {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* Trades table */
+    .trades-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .trades-table th {
+      text-align: left;
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .trades-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .trades-table tr:last-child td { border-bottom: none; }
+    .trades-table tr:hover { background: var(--surface2); }
 
     /* Funding table */
     .funding-table {
@@ -1121,252 +1274,521 @@
       border-radius: 4px;
     }
   </style>
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: { "primary": "#872be3", "accent-green": "#0bda73", "background-light": "#f7f6f8", "background-dark": "#09090b" },
+                fontFamily: { "display": ["Outfit", "Inter", "sans-serif"] },
+                borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+            },
+        },
+    }
+  </script>
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .sidebar-active { background: linear-gradient(90deg, rgba(135, 43, 227, 0.15) 0%, rgba(135, 43, 227, 0) 100%); border-left: 3px solid #872be3; }
+    .terminal-scroll::-webkit-scrollbar { width: 4px; }
+    .terminal-scroll::-webkit-scrollbar-thumb { background: rgba(135, 43, 227, 0.3); border-radius: 10px; }
+    
+    .page {
+      display: none;
+      flex: 1;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    .page.active {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+
 </head>
 
-<body>
-  <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-logo">
-        <h1>⚡ Trading Agents</h1>
-        <p>Hyperliquid Mainnet</p>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-section">Dashboard</div>
-        <div class="nav-item active" onclick="showPage('heartbeat')">
-          <span class="emoji">📊</span> Heartbeat
-        </div>
-        <div class="nav-item" onclick="showPage('portfolio')">
-          <span class="emoji">💼</span> Portfólio
-        </div>
-        <div class="nav-item" onclick="showPage('market')">
-          <span class="emoji">📈</span> Mercado
-        </div>
-        <div class="nav-item" onclick="showPage('news')">
-          <span class="emoji">📰</span> Notícias
-        </div>
-        <div class="nav-section">Agentes</div>
-        <div class="nav-item" onclick="showPage('chat'); setAgent('lux')">
-          <span class="emoji">🌟</span> Lux
-        </div>
-        <div class="nav-item" onclick="showPage('chat'); setAgent('hype_beast')">
-          <span class="emoji">🐂</span> Hype Beast
-        </div>
-        <div class="nav-item" onclick="showPage('chat'); setAgent('oracle')">
-          <span class="emoji">🔮</span> Oracle
-        </div>
-        <div class="nav-item" onclick="showPage('chat'); setAgent('vitalik')">
-          <span class="emoji">💎</span> Vitalik
-        </div>
-        <div class="nav-section">Debug</div>
-        <div class="nav-item" onclick="showPage('memory')">
-          <span class="emoji">🧠</span> Memória
-        </div>
-      </nav>
-      <div class="market-ticker" id="sidebar-ticker">
-        <div class="ticker-row"><span>BTC</span><span class="ticker-val" id="t-btc">–</span></div>
-        <div class="ticker-row"><span>ETH</span><span class="ticker-val" id="t-eth">–</span></div>
-        <div class="ticker-row"><span>HYPE</span><span class="ticker-val" id="t-hype">–</span></div>
-        <div class="ticker-row"><span>Dominância</span><span class="ticker-val" id="t-dom">–</span></div>
-      </div>
-    </aside>
+<body class="bg-background-dark font-display text-slate-100 min-h-screen">
+  
+  <div class="flex h-screen overflow-hidden p-4 gap-4">
+    <!-- Left Column: Sidebar -->
+    
+<aside class="w-64 flex flex-col glass rounded-xl overflow-hidden shrink-0">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-10">
+<div class="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-2xl">auto_fix_high</span>
+</div>
+<div>
+<h1 class="text-lg font-bold tracking-tight text-white">Actus Bot</h1>
+<p class="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">AI Intelligence</p>
+</div>
+</div>
+<nav class="space-y-1">
+<div class="px-4 py-2 text-[10px] font-bold text-slate-500 uppercase">Dashboard</div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg sidebar-active group transition-all" href="javascript:void(0)" onclick="showPage('heartbeat')" id="nav-heartbeat">
+<span class="material-symbols-outlined text-primary">monitoring</span>
+<span class="text-sm font-medium">Heartbeat</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('portfolio')" id="nav-portfolio">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">account_balance_wallet</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Portfolio</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('market')" id="nav-market">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">query_stats</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Market</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('news')" id="nav-news">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">news</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">News</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('chat'); setAgent('lux')" id="nav-chat">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">chat_bubble</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Chat</span>
+</a>
 
-    <!-- Main -->
-    <div class="main">
-      <div class="topbar">
-        <div class="topbar-title" id="page-title">📊 Heartbeat</div>
-        <div class="topbar-actions">
-          <span class="status-dot green pulse" id="status-dot"></span>
-          <span style="font-size:11px;color:var(--muted)" id="status-text">online</span>
-          <span id="next-run-text"
-            style="font-size:11px;color:var(--muted);margin-left:8px;border-left:1px solid var(--border);padding-left:8px">Próxima:
-            --:--</span>
-          <button class="btn btn-primary" id="hb-btn" onclick="triggerHeartbeat()" style="display:none">🔔 Disparar
-            Heartbeat</button>
-          <select id="hb-interval-select" onchange="setHeartbeatInterval(this.value)"
-            style="display:none;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">
-            <option value="15">⏱ 15 min</option>
-            <option value="30" selected>⏱ 30 min</option>
-            <option value="60">⏱ 1 hora</option>
-            <option value="120">⏱ 2 horas</option>
-          </select>
-          <button class="btn btn-ghost" id="tg-btn" onclick="sendTelegramReport()" style="display:none"
-            title="Enviar relatório Telegram agora">📨 Telegram</button>
-          <button class="btn btn-ghost" id="portfolio-refresh-btn" onclick="loadPortfolio()" style="display:none">↻
-            Atualizar</button>
-        </div>
+<div class="px-4 py-2 mt-4 text-[10px] font-bold text-slate-500 uppercase">Debug</div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('trades')" id="nav-trades">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">receipt_long</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Trades</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('memory')" id="nav-memory">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">memory</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Memory</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-6">
+<div class="bg-primary/5 rounded-xl border border-primary/10 p-4">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Market Ticker</span>
+<div class="h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse"></div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="text-xs font-semibold">BTC</span>
+<span class="text-xs text-accent-green font-mono">+$64.2k</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs font-semibold">ETH</span>
+<span class="text-xs text-accent-green font-mono">+$3.4k</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs font-semibold">SOL</span>
+<span class="text-xs text-primary font-mono">$142.5</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+
+
+    <!-- Center Column -->
+    <main class="flex-1 flex flex-col gap-4 overflow-y-auto pr-2" id="main-content">
+      
+<header class="flex items-center justify-between glass rounded-xl px-6 py-3 shrink-0">
+<div class="flex items-center bg-white/5 rounded-lg px-4 py-2 w-96 border border-white/5">
+<span class="material-symbols-outlined text-slate-400 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-slate-500 text-slate-200" placeholder="Search markets, assets, signals..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3 border-r border-white/10 pr-4 mr-1">
+  <div class="flex items-center gap-2 text-[12px] font-medium text-slate-400">
+    <span class="h-1.5 w-1.5 rounded-full bg-accent-green" id="status-dot"></span>
+    <span id="status-text">online</span>
+  </div>
+  <span class="text-slate-600">|</span>
+  <span id="next-run-text" class="text-[12px] text-slate-400">Próxima: --:--</span>
+  
+  <button id="hb-btn" onclick="triggerHeartbeat()" class="px-4 py-2 ml-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-[12px] font-bold justify-center rounded-lg transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)] flex items-center gap-1.5">
+    🔔 Disparar Heartbeat
+  </button>
+  
+  <div class="relative flex items-center ml-2">
+    <select id="hb-interval-select" onchange="setHeartbeatInterval(this.value)" class="appearance-none bg-[#121214] border border-white/10 rounded-lg pl-3 pr-8 py-2 text-[12px] font-bold text-slate-200 outline-none hover:border-white/20 transition-colors cursor-pointer">
+       <option value="15">⏱ 15 min</option>
+       <option value="30" selected>⏱ 30 min</option>
+       <option value="60">⏱ 60 min</option>
+       <option value="120">⏱ 120 min</option>
+    </select>
+    <span class="material-symbols-outlined absolute right-2 text-slate-400 pointer-events-none text-[16px]">expand_more</span>
+  </div>
+  
+  <button id="tg-btn" onclick="sendTelegramReport()" class="px-4 ml-2 flex items-center justify-center py-2 bg-[#121214] hover:bg-[#1f1f22] text-slate-200 text-[12px] font-bold rounded-lg transition-colors border border-white/10 gap-2 shadow-sm">
+    📨 Telegram
+  </button>
+</div>
+<button class="h-10 w-10 flex items-center justify-center glass rounded-lg hover:bg-white/10 transition-colors relative">
+<span class="material-symbols-outlined text-slate-400">notifications</span>
+<span class="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-accent-green"></span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-white/10">
+<div class="text-right">
+<p class="text-sm font-bold text-slate-100 leading-none">Guilherme B.</p>
+<p class="text-[10px] text-primary font-bold">PRO ACCOUNT</p>
+</div>
+<div class="h-10 w-10 rounded-full bg-slate-700 border-2 border-primary/30 flex items-center justify-center overflow-hidden">
+<img alt="Avatar" data-alt="User avatar of Guilherme B." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCf3VkXLC_j2cHtvCncxG9Xd1tddCtV0uDqO3eUlp8biHs6--Q15Dw5F1oh5E_LwWWbRZpRGztE0nL8Us1qUHPWBj_CQf0eb9-K7UGeDdKsdSxbjUa2hKtwwsA4h7cyZy4qwpl6AaXaoR4xyDSAvZF23BWMmVbnH-ib3SZIwI6mgVNiTr291HcXB2vMUswX1iWu902x1qHWiRAMGp-JkMtMF39NIGfrw31Ml_Os0WkXFF9kTZ7eVQObE25BHjm-4rBn8z7Fbn3nkvqz"/>
+</div>
+</div>
+</div>
+</header>
+
+      
+      <div class="hidden">
+          <button id="portfolio-refresh-btn" onclick="loadPortfolio()"></button>
+          <div id="page-title"></div>
       </div>
 
-      <!-- Heartbeat Page -->
       <div class="page active" id="page-heartbeat">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Histórico de Análises</div>
-            <button class="btn btn-ghost" onclick="loadHeartbeats()">↻ Atualizar</button>
-          </div>
-          <div class="report-list" id="report-list">
-            <div class="empty">
-              <div class="icon">📭</div>Nenhum relatório ainda. Dispare o primeiro heartbeat!
-            </div>
-          </div>
+        
+<div class="grid grid-cols-3 gap-4">
+<!-- Lux AI Decision -->
+<div class="glass p-5 rounded-xl border-l-4 border-l-accent-green" id="dashboard-decision-border">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Lux AI Decision</p>
+<h3 class="text-2xl font-bold text-accent-green tracking-tight" id="dashboard-decision-text">ANALYSING</h3>
+</div>
+<div class="h-10 w-10 rounded-lg bg-accent-green/10 flex items-center justify-center" id="dashboard-decision-icon-bg">
+<span class="material-symbols-outlined text-accent-green" id="dashboard-decision-icon">bolt</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-accent-green" style="width: 0%" id="dashboard-decision-bar"></div>
+</div>
+<span class="text-[10px] font-bold text-accent-green" id="dashboard-decision-conf">--%</span>
+</div>
+</div>
+<!-- Portfolio Balance -->
+<div class="glass p-5 rounded-xl">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Balance</p>
+<h3 class="text-2xl font-bold text-white tracking-tight" id="dashboard-total-balance">$---.--</h3>
+</div>
+<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">account_balance</span>
+</div>
+</div>
+<div class="flex items-end gap-3">
+<span class="text-sm font-bold text-slate-400" id="dashboard-total-pnl">---%</span>
+<div class="flex-1 h-6 flex items-center">
+<!-- Mini Sparkline placeholder -->
+<svg class="w-full h-full stroke-accent-green fill-none overflow-visible" viewbox="0 0 100 20">
+<path d="M0,15 Q10,18 20,10 T40,12 T60,5 T80,8 T100,2" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Technical Analysis -->
+<div class="glass p-5 rounded-xl">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Technical Analysis</p>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-xs">
+<span class="text-slate-400">RSI (14)</span>
+<span class="font-mono text-white">65.2</span>
+</div>
+<div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
+<div class="h-full bg-primary/40" style="width: 30%"></div>
+<div class="h-full bg-primary" style="width: 35%"></div>
+<div class="h-full bg-white/10" style="width: 35%"></div>
+</div>
+<div class="flex justify-between items-center text-xs pt-1">
+<span class="text-slate-400">MACD</span>
+<span class="font-bold text-accent-green">Bullish Crossover</span>
+</div>
+</div>
+</div>
+</div>
+
+        <!-- Legacy Report List appended -->
+        <div class="glass p-5 rounded-xl border border-white/5 mt-4">
+           <div class="flex justify-between items-center mb-4">
+               <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Histórico de Análises (Heartbeats)</h2>
+               <button class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-slate-300 transition-colors" onclick="loadHeartbeats()">↻ Atualizar</button>
+           </div>
+           <div class="report-list" id="report-list">
+             <div class="empty"><div class="icon">📭</div>Nenhum relatório ainda. Dispare o primeiro heartbeat!</div>
+           </div>
         </div>
       </div>
 
+      
       <!-- Portfolio Page -->
       <div class="page" id="page-portfolio">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Análise Técnica — 1h Candles (Hyperliquid)</div>
-            <button class="btn btn-ghost" onclick="loadTechnical()">↻</button>
+        <!-- Portfolio Agents -->
+        <div class="glass p-5 rounded-xl border border-white/5 mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Portfólio dos Agentes</h2>
           </div>
-          <div class="tech-grid" id="tech-grid">
-            <div class="tech-card">
-              <div class="tech-coin">BTC</div>
-              <div class="tech-rsi neutral" id="tech-rsi-BTC">–</div>
-              <div class="tech-label" id="tech-label-BTC">RSI(14)</div>
-              <div class="tech-row"><span id="tech-ema-BTC" style="color:var(--muted)">–</span><span
-                  id="tech-trend-BTC">–</span></div>
-            </div>
-            <div class="tech-card">
-              <div class="tech-coin">ETH</div>
-              <div class="tech-rsi neutral" id="tech-rsi-ETH">–</div>
-              <div class="tech-label" id="tech-label-ETH">RSI(14)</div>
-              <div class="tech-row"><span id="tech-ema-ETH" style="color:var(--muted)">–</span><span
-                  id="tech-trend-ETH">–</span></div>
-            </div>
-            <div class="tech-card">
-              <div class="tech-coin">HYPE</div>
-              <div class="tech-rsi neutral" id="tech-rsi-HYPE">–</div>
-              <div class="tech-label" id="tech-label-HYPE">RSI(14)</div>
-              <div class="tech-row"><span id="tech-ema-HYPE" style="color:var(--muted)">–</span><span
-                  id="tech-trend-HYPE">–</span></div>
-            </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="portfolio-grid">
+            <div class="text-xs text-slate-500 text-center py-4">⏳ Carregando agentes...</div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Funding Rates — Hyperliquid Perps</div>
+        
+        <div class="glass p-5 rounded-xl border border-white/5 mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Análise Técnica — 1H Candles (Hyperliquid)</h2>
+            <button class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-slate-300 transition-colors flex items-center gap-1" onclick="loadTechnical()"><span class="material-symbols-outlined text-[14px]">refresh</span></button>
           </div>
-          <table class="funding-table">
-            <thead>
-              <tr>
-                <th>Ativo</th>
-                <th>Preço Mark</th>
-                <th>Funding/h</th>
-                <th>Open Interest</th>
-                <th>Volume 24h</th>
-              </tr>
-            </thead>
-            <tbody id="funding-tbody">
-              <tr>
-                <td colspan="5" style="color:var(--muted);padding:20px;text-align:center">Carregando...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="tech-grid"></div>
         </div>
-        <div class="portfolio-grid" id="portfolio-grid">
-          <div class="empty">
-            <div class="icon">⏳</div>Carregando portfólio...
+        
+        <!-- Price Charts -->
+        <div class="glass p-5 rounded-xl border border-white/5 mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Gráficos de Preço — 1H Candles</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="charts-grid">
+            
+            <div class="bg-black/20 rounded-lg p-4 border border-white/5">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">₿</span> BTC</span>
+                <span class="text-sm font-bold text-white" id="chart-price-BTC">$–</span>
+              </div>
+              <div class="h-[200px]" id="chart-BTC"></div>
+            </div>
+            
+            <div class="bg-black/20 rounded-lg p-4 border border-white/5">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">Ξ</span> ETH</span>
+                <span class="text-sm font-bold text-white" id="chart-price-ETH">$–</span>
+              </div>
+              <div class="h-[200px]" id="chart-ETH"></div>
+            </div>
+            
+            <div class="bg-black/20 rounded-lg p-4 border border-white/5">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">◎</span> SOL</span>
+                <span class="text-sm font-bold text-white" id="chart-price-SOL">$–</span>
+              </div>
+              <div class="h-[200px]" id="chart-SOL"></div>
+            </div>
+
           </div>
         </div>
       </div>
+
 
       <!-- Market Page -->
       <div class="page" id="page-market">
-        <div class="market-grid" id="market-grid">
-          <div class="market-card">
-            <div class="asset">BTC</div>
-            <div class="price" id="m-btc-price">–</div>
-            <div class="change" id="m-btc-chg">–</div>
-            <div class="sub" id="m-btc-funding">–</div>
+        <div class="grid grid-cols-[1fr_300px] gap-4">
+          <!-- Left Column -->
+          <div class="flex flex-col gap-4">
+            <!-- Funding Rates -->
+            <div class="glass p-5 rounded-xl border border-white/5">
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Funding Rates — Hyperliquid Perps</h2>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead>
+                    <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10 pb-2">
+                      <th class="pb-2">Ativo</th>
+                      <th class="pb-2">Preço Mark</th>
+                      <th class="pb-2">Funding/h</th>
+                      <th class="pb-2">Open Interest</th>
+                      <th class="pb-2">Volume 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody id="funding-tbody" class="divide-y divide-white/5">
+                    <tr><td colspan="5" class="py-4 text-center text-slate-500">Carregando...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
           </div>
-          <div class="market-card">
-            <div class="asset">ETH</div>
-            <div class="price" id="m-eth-price">–</div>
-            <div class="change" id="m-eth-chg">–</div>
-            <div class="sub" id="m-eth-funding">–</div>
-          </div>
-          <div class="market-card">
-            <div class="asset">HYPE</div>
-            <div class="price" id="m-hype-price">–</div>
-            <div class="change" id="m-hype-funding">–</div>
-            <div class="sub">perp — Hyperliquid</div>
-          </div>
-          <div class="market-card">
-            <div class="asset">BTC Dom.</div>
-            <div class="price" id="m-dom">–</div>
-            <div class="change" style="color:var(--muted);font-size:11px">dominância de mercado</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title" style="margin-bottom:12px">Dados CoinGecko + Hyperliquid</div>
-          <button class="btn btn-ghost" onclick="loadMarket(); loadHLMarket()">↻ Atualizar dados</button>
-        </div>
-      </div>
-
-      <!-- News Page -->
-      <div class="page" id="page-news">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Notícias Crypto</div>
-            <button class="btn btn-ghost" onclick="loadNews()">↻ Atualizar</button>
-          </div>
-          <div class="news-list" id="news-list">
-            <div class="empty">
-              <div class="icon">⏳</div>Carregando notícias...
+          
+          <!-- Right Column (Mini Tickers & Actions) -->
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <button class="px-4 py-2 w-full bg-white/5 hover:bg-white/10 rounded-lg text-xs text-slate-300 transition-colors flex items-center justify-center gap-2" onclick="loadMarket(); loadHLMarket(); loadPortfolio()">
+                <span class="material-symbols-outlined text-[16px]">refresh</span> Atualizar Dados
+              </button>
+            </div>
+          
+            <div class="glass p-4 rounded-xl border border-white/5">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">BTC</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-btc-price">–</div>
+              <div class="text-xs font-bold text-accent-green mt-1" id="m-btc-chg">–</div>
+              <div class="text-[10px] text-slate-500 mt-1" id="m-btc-funding">–</div>
+            </div>
+            
+            <div class="glass p-4 rounded-xl border border-white/5">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ETH</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-eth-price">–</div>
+              <div class="text-xs font-bold text-accent-green mt-1" id="m-eth-chg">–</div>
+              <div class="text-[10px] text-slate-500 mt-1" id="m-eth-funding">–</div>
+            </div>
+            
+            <div class="glass p-4 rounded-xl border border-white/5">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SOL</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-sol-price">–</div>
+              <div class="text-xs font-bold text-accent-green mt-1" id="m-sol-chg">–</div>
+              <div class="text-[10px] text-slate-500 mt-1" id="m-sol-funding">–</div>
+            </div>
+            
+            <div class="glass p-4 rounded-xl border border-white/5">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">HYPE</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-hype-price">–</div>
+              <div class="text-xs font-bold text-accent-green mt-1" id="m-hype-funding">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">perp — Hyperliquid</div>
+            </div>
+            
+            <div class="glass p-4 rounded-xl border border-white/5">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">BTC DOM.</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-dom">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">dominância de mercado</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Chat Page -->
-      <div class="page" id="page-chat">
-        <div class="agent-tabs" id="agent-tabs">
-          <div class="agent-tab active" onclick="setAgent('lux')" id="tab-lux">🌟 Lux</div>
-          <div class="agent-tab" onclick="setAgent('hype_beast')" id="tab-hype_beast">🐂 Hype Beast</div>
-          <div class="agent-tab" onclick="setAgent('oracle')" id="tab-oracle">🔮 Oracle</div>
-          <div class="agent-tab" onclick="setAgent('vitalik')" id="tab-vitalik">💎 Vitalik</div>
-        </div>
-        <div class="chat-layout">
-          <div class="chat-messages" id="chat-messages"></div>
-          <div class="chat-input-area">
-            <textarea class="chat-input" id="chat-input" rows="2" placeholder="Digite sua mensagem..."
-              onkeydown="handleKey(event)"></textarea>
-            <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">Enviar</button>
+
+      <!-- News Page -->
+      <div class="page" id="page-news">
+        <div class="grid grid-cols-[1fr_300px] gap-4">
+          <!-- Left Column: Same layout as Market to combine info -->
+          <div class="flex flex-col gap-4">
+            <!-- Funding Rates -->
+            <div class="glass p-5 rounded-xl border border-white/5">
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Funding Rates — Hyperliquid Perps</h2>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead>
+                    <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10 pb-2">
+                      <th class="pb-2">Ativo</th>
+                      <th class="pb-2">Preço Mark</th>
+                      <th class="pb-2">Funding/h</th>
+                      <th class="pb-2">Open Interest</th>
+                      <th class="pb-2">Volume 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody id="funding-tbody-news" class="divide-y divide-white/5">
+                    <tr><td colspan="5" class="py-4 text-center text-slate-500">Carregando...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Portfolio Agents -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="portfolio-grid-news">
+              <div class="text-xs text-slate-500 text-center py-4">⏳ Carregando agentes...</div>
+            </div>
+          </div>
+
+          <!-- Right Column: News Section -->
+          <div class="glass p-5 rounded-xl border border-white/5 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Notícias Crypto</h2>
+              <button class="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-slate-300 transition-colors flex items-center justify-center gap-1" onclick="loadNews()">
+                <span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-3" id="news-list">
+              <div class="text-xs text-slate-500 text-center py-4">⏳ Carregando notícias...</div>
+            </div>
           </div>
         </div>
       </div>
+
+
+      <!-- Chat Page -->
+      <div class="page" id="page-chat">
+        <div class="flex gap-4 mb-4" id="agent-tabs">
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab active" onclick="setAgent('lux')" id="tab-lux">🌟 Lux</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('hype_beast')" id="tab-hype_beast">🐂 Hype Beast</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('oracle')" id="tab-oracle">🔮 Oracle</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('vitalik')" id="tab-vitalik">💎 Vitalik</div>
+        </div>
+        
+        <div class="glass p-0 rounded-xl border border-white/5 flex-1 flex flex-col overflow-hidden">
+          <div class="flex-1 overflow-y-auto p-5 space-y-4" id="chat-messages">
+          </div>
+          <div class="bg-black/20 p-4 border-t border-white/5 flex gap-2">
+            <textarea class="flex-1 bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-primary resize-none placeholder:text-slate-500" id="chat-input" rows="1" placeholder="Digite sua mensagem ao agente..." onkeydown="handleKey(event)"></textarea>
+            <button class="px-6 py-2 bg-primary hover:bg-primary/80 text-white font-bold text-sm rounded-lg transition-colors flex items-center" id="send-btn" onclick="sendMessage()"><span class="material-symbols-outlined">send</span></button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Trades Page -->
+      <div class="page" id="page-trades">
+        <div class="glass p-5 rounded-xl border border-white/5">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Histórico de Trades</h2>
+            <button class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-slate-300 transition-colors flex items-center gap-1" onclick="loadTrades()"><span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar</button>
+          </div>
+          <div class="overflow-x-auto" id="trades-content">
+            <div class="text-xs text-slate-500 text-center py-4">⏳ Carregando trades...</div>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Memory Page -->
       <div class="page" id="page-memory">
-        <div class="agent-tabs">
-          <div class="agent-tab active" onclick="loadMemory('lux')" id="mtab-lux">🌟 Lux</div>
-          <div class="agent-tab" onclick="loadMemory('hype_beast')" id="mtab-hype_beast">🐂 Hype Beast</div>
-          <div class="agent-tab" onclick="loadMemory('oracle')" id="mtab-oracle">🔮 Oracle</div>
-          <div class="agent-tab" onclick="loadMemory('vitalik')" id="mtab-vitalik">💎 Vitalik</div>
+        <div class="flex gap-4 mb-4">
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab active" onclick="loadMemory('lux')" id="mtab-lux">🌟 Lux</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('hype_beast')" id="mtab-hype_beast">🐂 Hype Beast</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('oracle')" id="mtab-oracle">🔮 Oracle</div>
+          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('vitalik')" id="mtab-vitalik">💎 Vitalik</div>
         </div>
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title" id="memory-agent-title">MEMORY.md — lux</div>
-            <button class="btn btn-ghost" onclick="loadMemory(currentMemoryAgent)">↻ Atualizar</button>
+        
+        <div class="glass p-5 rounded-xl border border-white/5 flex-1 flex flex-col">
+          <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-primary" id="memory-agent-title">MEMORY.md — lux</h2>
+            <button class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-slate-300 transition-colors flex items-center gap-1" onclick="loadMemory(currentMemoryAgent)"><span class="material-symbols-outlined text-[14px]">refresh</span></button>
           </div>
-          <div class="memory-content" id="memory-content">Carregando...</div>
+          <div class="flex-1 overflow-y-auto text-sm text-slate-300 space-y-2 whitespace-pre-wrap font-mono" id="memory-content">
+             Carregando...
+          </div>
         </div>
       </div>
-    </div> <!-- End main container -->
 
-    <aside class="log-sidebar">
-      <div class="log-header">
-        <div class="log-title">Live Terminal</div>
-        <div class="topbar-actions">
-          <button class="btn btn-ghost" onclick="clearTerminal()" title="Clear Logs" style="padding:4px">🗑️</button>
-        </div>
-      </div>
-      <div id="terminal-content" class="custom-scrollbar">
-        <!-- Logs appear here -->
-      </div>
-    </aside>
-  </div> <!-- End .app -->
+    </main>
+
+    <!-- Right Column: Live Terminal -->
+    
+<aside class="w-80 flex flex-col glass rounded-xl overflow-hidden shrink-0">
+<div class="p-5 border-b border-white/5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-primary">terminal</span>
+<h2 class="text-sm font-bold uppercase tracking-widest text-white">Live Terminal</h2>
+</div>
+<div class="flex gap-1.5">
+<span class="h-2 w-2 rounded-full bg-red-500/50"></span>
+<span class="h-2 w-2 rounded-full bg-yellow-500/50"></span>
+<span class="h-2 w-2 rounded-full bg-green-500/50"></span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-5 space-y-1 font-mono text-[11px] terminal-scroll" id="terminal-content">
+</div>
+<div class="p-5 border-t border-white/5">
+<div class="bg-primary rounded-lg p-3 cursor-pointer hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold text-white uppercase tracking-tighter">AI Autopilot Mode</span>
+<div class="h-4 w-8 bg-black/30 rounded-full relative p-0.5">
+<div class="h-3 w-3 bg-white rounded-full ml-auto"></div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+
+  </div>
+  
+  <!-- Preserving Modals and Scripts -->
+
 
   <!-- Order Modal -->
   <div class="modal-overlay" id="order-modal">
@@ -1376,7 +1798,8 @@
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="warning-box">
-        ⚠ Esta ordem será executada na Hyperliquid Mainnet com fundos reais. Confirme os dados antes de prosseguir.
+        ⚠ Esta ordem será executada na Hyperliquid <span class="net-name">Mainnet</span> com fundos reais. Confirme os
+        dados antes de prosseguir.
       </div>
       <div class="form-row">
         <label class="form-label">Agente</label>
@@ -1414,7 +1837,7 @@
         <button class="modal-close" onclick="closeCloseModal()">✕</button>
       </div>
       <div class="warning-box">
-        ⚠ Isso vai fechar a posição com uma ordem de mercado na Hyperliquid Mainnet.
+        ⚠ Isso vai fechar a posição com uma ordem de mercado na Hyperliquid <span class="net-name">Mainnet</span>.
       </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px" id="close-modal-info"></div>
       <div class="modal-actions">
@@ -1441,13 +1864,29 @@
       market: '📈 Mercado',
       news: '📰 Notícias',
       chat: '💬 Chat',
+      trades: '📝 Trades',
       memory: '🧠 Memória',
     };
 
     // ── Navigation ──────────────────────────────────────────────────────────────
     function showPage(name) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      
+      // Reset Tailwind nav state
+      document.querySelectorAll('nav a').forEach(a => {
+        a.classList.remove('sidebar-active');
+        a.classList.add('hover:bg-white/5');
+        const icon = a.querySelector('.material-symbols-outlined');
+        if (icon) {
+          icon.classList.remove('text-primary');
+          icon.classList.add('text-slate-400', 'group-hover:text-primary');
+        }
+        const textBtn = a.querySelector('span:not(.material-symbols-outlined)');
+        if (textBtn) {
+          textBtn.classList.add('text-slate-400', 'group-hover:text-slate-100');
+        }
+      });
+
       document.getElementById('page-' + name).classList.add('active');
       document.getElementById('page-title').textContent = pageTitles[name] || name;
       currentPage = name;
@@ -1456,21 +1895,29 @@
       document.getElementById('hb-interval-select').style.display = name === 'heartbeat' ? 'inline-block' : 'none';
       document.getElementById('tg-btn').style.display = name === 'heartbeat' ? 'inline-block' : 'none';
       document.getElementById('portfolio-refresh-btn').style.display = name === 'portfolio' ? 'inline-block' : 'none';
-      if (name === 'heartbeat') loadHeartbeatInterval();
-
-      if (name === 'heartbeat') loadHeartbeats();
-      if (name === 'portfolio') { loadPortfolio(); loadTechnical(); loadHLMarket(); }
+      if (name === 'heartbeat') { loadHeartbeatInterval(); loadHeartbeats(); updateNextRun(); }
+      if (name === 'portfolio') { loadPortfolio(); loadTechnical(); loadHLMarket(); loadCharts(); }
       if (name === 'market') { loadMarket(); loadHLMarket(); }
       if (name === 'news') loadNews();
       if (name === 'chat') loadChatHistory();
+      if (name === 'trades') loadTrades();
       if (name === 'memory') loadMemory(currentMemoryAgent);
 
-      if (name === 'heartbeat') { loadHeartbeats(); updateNextRun(); }
-
-      document.querySelectorAll('.nav-item').forEach(item => {
-        const oc = item.getAttribute('onclick') || '';
-        if (oc.includes(`'${name}'`)) item.classList.add('active');
-      });
+      // Set active Tailwind nav state
+      const activeNav = document.getElementById('nav-' + name);
+      if (activeNav) {
+        activeNav.classList.add('sidebar-active');
+        activeNav.classList.remove('hover:bg-white/5');
+        const icon = activeNav.querySelector('.material-symbols-outlined');
+        if (icon) {
+          icon.classList.add('text-primary');
+          icon.classList.remove('text-slate-400', 'group-hover:text-primary');
+        }
+        const textBtn = activeNav.querySelector('span:not(.material-symbols-outlined)');
+        if (textBtn) {
+          textBtn.classList.remove('text-slate-400', 'group-hover:text-slate-100');
+        }
+      }
     }
 
     // ── Market (CoinGecko) ──────────────────────────────────────────────────────
@@ -1533,63 +1980,401 @@
       try {
         const d = await api('/api/hl/market');
         if (d.error) return;
-        // Sidebar
-        document.getElementById('t-btc').textContent = '$' + fmt2(d.btc_price);
-        document.getElementById('t-eth').textContent = '$' + fmt2(d.eth_price);
-        document.getElementById('t-hype').textContent = '$' + fmtPrice(d.hype_price);
-        // Market page
-        document.getElementById('m-btc-price').textContent = '$' + fmt2(d.btc_price);
-        document.getElementById('m-eth-price').textContent = '$' + fmt2(d.eth_price);
-        document.getElementById('m-hype-price').textContent = '$' + fmtPrice(d.hype_price);
-        document.getElementById('m-btc-funding').textContent = 'Funding: ' + fmtFunding(d.btc_funding) + '/h';
-        document.getElementById('m-eth-funding').textContent = 'Funding: ' + fmtFunding(d.eth_funding) + '/h';
-        document.getElementById('m-hype-funding').textContent = 'Funding: ' + fmtFunding(d.hype_funding) + '/h';
-        // Funding table
-        const coins = ['btc', 'eth', 'hype'];
-        const labels = ['BTC', 'ETH', 'HYPE'];
-        const tbody = document.getElementById('funding-tbody');
-        if (tbody) {
-          tbody.innerHTML = coins.map((c, i) => {
-            const f = d[c + '_funding'] || 0;
-            const fClass = f > 0 ? 'funding-pos' : (f < 0 ? 'funding-neg' : 'funding-zero');
-            const fSign = f > 0 ? '+' : '';
-            return `<tr>
-          <td><strong>${labels[i]}</strong></td>
-          <td>$${fmt2(d[c + '_mark_price'] || 0)}</td>
-          <td class="${fClass}">${fSign}${(f * 100).toFixed(4)}%</td>
-          <td>$${fmtB(d[c + '_oi'] || 0)}</td>
-          <td>$${fmtB(d[c + '_volume_24h'] || 0)}</td>
-        </tr>`;
-          }).join('');
+        const coins = d.watched_coins || ['BTC', 'ETH', 'HYPE'];
+
+        // Update Network Labels
+        if (d.network) {
+          const isTestnet = d.network.toLowerCase() === 'testnet';
+          document.querySelectorAll('.net-name').forEach(el => {
+            el.textContent = isTestnet ? 'Testnet' : 'Mainnet';
+          });
+          if (isTestnet) {
+            agentCoins.hype_beast = 'SOL';
+          } else {
+            agentCoins.hype_beast = 'HYPE';
+          }
         }
+
+        // Sidebar Tickers Dynamic Labels
+        ['btc', 'eth', 'hype'].forEach((id, i) => {
+          const el = document.getElementById('t-' + id);
+          if (el) {
+            el.textContent = '$' + (d[coins[i].toLowerCase() + '_price'] ? fmtPrice(d[coins[i].toLowerCase() + '_price']) : '–');
+            if (el.previousElementSibling) el.previousElementSibling.textContent = coins[i];
+          }
+        });
+
+        // Market Page Cards Dynamic Labels
+        ['btc', 'eth', 'hype'].forEach((id, i) => {
+          const coin = coins[i].toLowerCase();
+          const priceEl = document.getElementById(`m-${id}-price`);
+          if (priceEl) {
+            priceEl.textContent = '$' + (d[coin + '_price'] ? fmtPrice(d[coin + '_price']) : '–');
+            if (priceEl.previousElementSibling) priceEl.previousElementSibling.textContent = coins[i];
+
+            const fundingEl = document.getElementById(`m-${id}-funding`);
+            if (fundingEl) {
+              const f = d[coin + '_funding'] || 0;
+              fundingEl.textContent = 'Funding: ' + fmtFunding(f) + '/h';
+            }
+          }
+        });
+
+        // Funding table
+        const tbodyHTML = coins.map((c) => {
+          const coin = c.toLowerCase();
+          const f = d[coin + '_funding'] || 0;
+          const fClass = f > 0 ? 'text-accent-green' : (f < 0 ? 'text-red-500' : 'text-slate-400');
+          const fSign = f > 0 ? '+' : '';
+          return `<tr>
+        <td class="py-3 font-bold text-white">${c}</td>
+        <td class="py-3">$${fmt2(d[coin + '_mark_price'] || 0)}</td>
+        <td class="py-3 ${fClass}">${fSign}${(f * 100).toFixed(4)}%</td>
+        <td class="py-3">$${fmtB(d[coin + '_oi'] || 0)}</td>
+        <td class="py-3">$${fmtB(d[coin + '_volume_24h'] || 0)}</td>
+      </tr>`;
+        }).join('');
+        
+        [document.getElementById('funding-tbody'), document.getElementById('funding-tbody-news')].forEach(tb => {
+          if (tb) tb.innerHTML = tbodyHTML;
+        });
       } catch (e) { console.error('hl market', e); }
     }
 
-    // ── Technical (RSI + EMA) ───────────────────────────────────────────────────
+
+    // ── Technical (Full indicators via pandas-ta) ──────────────────────────────
     async function loadTechnical() {
       try {
         const tech = await api('/api/hl/technical');
-        ['BTC', 'ETH', 'HYPE'].forEach(coin => {
+        const coins = (tech.metadata && tech.metadata.watched_coins) || ['BTC', 'ETH', 'SOL'];
+        
+        // Update Dashboard Banners
+        updateDashboardBanners(tech, coins);
+
+        const grid = document.getElementById('tech-grid');
+        if (!grid) return;
+
+        grid.innerHTML = coins.map(coin => {
           const d = tech[coin];
-          if (!d) return;
-          const rsiEl = document.getElementById('tech-rsi-' + coin);
-          const labelEl = document.getElementById('tech-label-' + coin);
-          const emaEl = document.getElementById('tech-ema-' + coin);
-          const trendEl = document.getElementById('tech-trend-' + coin);
-          if (!rsiEl) return;
+          if (!d) return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-2">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
+            </div>
+            <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
+            <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
+            <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
+              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
+              <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
+            </div>
+            <div class="mt-3 space-y-2 text-[10px]">
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">MACD</span>
+                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">Bollinger</span>
+                <span class="font-bold text-white">BB% = ${bbPct}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">ATR(14)</span>
+                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">OBV</span>
+                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
+              <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
+                <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
+              </div>
+              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
+            </div>
+          </div>`;
+          if (d.error) return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-2">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
+            </div>
+            <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
+            <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
+            <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
+              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
+              <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
+            </div>
+            <div class="mt-3 space-y-2 text-[10px]">
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">MACD</span>
+                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">Bollinger</span>
+                <span class="font-bold text-white">BB% = ${bbPct}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">ATR(14)</span>
+                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">OBV</span>
+                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
+              <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
+                <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
+              </div>
+              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
+            </div>
+          </div>`;
+
           const rsi = d.rsi_14 || 50;
-          rsiEl.textContent = rsi.toFixed(1);
-          rsiEl.className = 'tech-rsi ' + (rsi >= 70 ? 'overbought' : rsi <= 30 ? 'oversold' : 'neutral');
-          if (rsi >= 70) labelEl.textContent = 'SOBRECOMPRA';
-          else if (rsi <= 30) labelEl.textContent = 'SOBREVENDA';
-          else labelEl.textContent = 'RSI(14) neutro';
-          emaEl.textContent = d.ema9 ? `EMA9: ${fmtPrice(d.ema9)}` : 'EMA: –';
+          const rsiClass = rsi >= 70 ? 'overbought' : rsi <= 30 ? 'oversold' : 'neutral';
+          const rsiLabel = rsi >= 70 ? 'SOBRECOMPRA' : rsi <= 30 ? 'SOBREVENDA' : 'RSI(14) neutro';
           const trend = d.trend_ema || 'BEAR';
-          trendEl.textContent = trend === 'BULL' ? '↑ BULL' : '↓ BEAR';
-          trendEl.className = trend === 'BULL' ? 'tech-trend-bull' : 'tech-trend-bear';
-        });
+          const trendClass = trend === 'BULL' ? 'tech-trend-bull' : 'tech-trend-bear';
+          const macdTrend = d.macd_trend || '?';
+
+          // Confidence based on multi-indicator
+          let conf = 5;
+          if (trend === 'BULL' && rsi < 70) conf += 1;
+          if (trend === 'BEAR' && rsi > 30) conf += 1;
+          if (rsi > 80 || rsi < 20) conf += 2;
+          if (macdTrend === trend) conf += 1;
+          if (d.bb_upper && d.bb_lower && d.last_close) {
+            if (d.last_close <= d.bb_lower) conf += 1;
+            else if (d.last_close >= d.bb_upper) conf += 0.5;
+          }
+          const confPct = Math.min(conf / 10 * 100, 100);
+          const confColor = conf >= 7 ? 'var(--positive)' : conf >= 5 ? 'var(--hold)' : 'var(--sell)';
+
+          // Bollinger Band position
+          let bbPct = '?';
+          if (d.bb_upper && d.bb_lower && d.last_close) {
+            const range = d.bb_upper - d.bb_lower;
+            bbPct = range > 0 ? Math.round((d.last_close - d.bb_lower) / range * 100) + '%' : '50%';
+          }
+
+          return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-2">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
+            </div>
+            <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
+            <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
+            <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
+              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
+              <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
+            </div>
+            <div class="mt-3 space-y-2 text-[10px]">
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">MACD</span>
+                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">Bollinger</span>
+                <span class="font-bold text-white">BB% = ${bbPct}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">ATR(14)</span>
+                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 uppercase">OBV</span>
+                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
+              <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
+                <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
+              </div>
+              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
+            </div>
+          </div>`;
+        }).join('');
       } catch (e) { console.error('technical', e); }
     }
+
+    function updateDashboardBanners(tech, coins) {
+      if (!tech || !coins.length) return;
+      const primaryCoin = coins.includes('SOL') ? 'SOL' : coins[0];
+      const d = tech[primaryCoin];
+      if (!d || d.error) return;
+
+      const rsi = d.rsi_14 || 50;
+      const trend = d.trend_ema || 'BEAR';
+      const macdTrend = d.macd_trend || 'Neutral';
+
+      // Update Technical Analysis Banner
+      const elRsi = document.getElementById('dashboard-tech-rsi');
+      const elRsiBar = document.getElementById('dashboard-tech-rsi-bar');
+      const elMacd = document.getElementById('dashboard-tech-macd');
+      if (elRsi) elRsi.textContent = rsi.toFixed(1);
+      if (elRsiBar) elRsiBar.style.width = Math.min(Math.max(rsi, 0), 100) + '%';
+      if (elMacd) {
+        elMacd.textContent = macdTrend === 'BULL' ? 'Bullish' : (macdTrend === 'BEAR' ? 'Bearish' : 'Neutral');
+        elMacd.className = 'font-bold text-xs ' + (macdTrend === 'BULL' ? 'text-accent-green' : (macdTrend === 'BEAR' ? 'text-red-500' : 'text-slate-400'));
+      }
+
+      // Update Lux AI Decision Banner
+      const elDecBorder = document.getElementById('dashboard-decision-border');
+      const elDecText = document.getElementById('dashboard-decision-text');
+      const elDecConf = document.getElementById('dashboard-decision-conf');
+      const elDecBar = document.getElementById('dashboard-decision-bar');
+      const elDecIcon = document.getElementById('dashboard-decision-icon');
+      const elDecIconBg = document.getElementById('dashboard-decision-icon-bg');
+
+      let conf = 5;
+      if (trend === 'BULL' && rsi < 70) conf += 1;
+      if (trend === 'BEAR' && rsi > 30) conf += 1;
+      if (rsi > 80 || rsi < 20) conf += 2;
+      if (macdTrend === trend) conf += 1;
+      if (d.bb_upper && d.bb_lower && d.last_close) {
+        if (d.last_close <= d.bb_lower) conf += 1;
+        else if (d.last_close >= d.bb_upper) conf += 0.5;
+      }
+      const confPct = Math.min(conf / 10 * 100, 100);
+
+      if (elDecText) {
+        elDecText.textContent = trend === 'BULL' ? 'BUY SIGNAL' : 'SELL SIGNAL';
+        elDecText.className = 'text-2xl font-bold tracking-tight ' + (trend === 'BULL' ? 'text-accent-green' : 'text-red-500');
+        if (elDecBorder) elDecBorder.className = 'glass p-5 rounded-xl border-l-4 ' + (trend === 'BULL' ? 'border-l-accent-green' : 'border-l-red-500');
+        if (elDecConf) {
+          elDecConf.textContent = confPct.toFixed(0) + '% Confidence';
+          elDecConf.className = 'text-[10px] font-bold ' + (trend === 'BULL' ? 'text-accent-green' : 'text-red-500');
+        }
+        if (elDecBar) {
+          elDecBar.style.width = confPct + '%';
+          elDecBar.className = 'h-full ' + (trend === 'BULL' ? 'bg-accent-green' : 'bg-red-500');
+        }
+        if (elDecIconBg) elDecIconBg.className = 'h-10 w-10 rounded-lg flex items-center justify-center ' + (trend === 'BULL' ? 'bg-accent-green/10' : 'bg-red-500/10');
+        if (elDecIcon) {
+          elDecIcon.className = 'material-symbols-outlined ' + (trend === 'BULL' ? 'text-accent-green' : 'text-red-500');
+          elDecIcon.textContent = trend === 'BULL' ? 'trending_up' : 'trending_down';
+        }
+      }
+    }
+
+    // ── Price Charts (TradingView Lightweight Charts v4) ─────────────────────
+    const chartInstances = {};
+
+    async function loadCharts() {
+      if (typeof LightweightCharts === 'undefined') {
+        console.warn('LightweightCharts not loaded');
+        return;
+      }
+
+      const coins = ['BTC', 'ETH', 'SOL'];
+      let tech = {};
+      try { tech = await api('/api/hl/technical'); } catch (e) { console.error(e); }
+
+      for (const coin of coins) {
+        const container = document.getElementById('chart-' + coin);
+        if (!container) continue;
+
+        // Update price label
+        const priceEl = document.getElementById('chart-price-' + coin);
+        const d = tech[coin];
+        if (priceEl && d && d.last_close) {
+          priceEl.textContent = '$' + fmtPrice(d.last_close);
+        }
+
+        // Clean previous chart
+        if (chartInstances[coin]) {
+          chartInstances[coin].remove();
+          container.innerHTML = '';
+        }
+
+        // Try fetching candle data
+        let candles = [];
+        try {
+          const endMs = Date.now();
+          const startMs = endMs - (60 * 60 * 1000 * 60);
+          const resp = await fetch('/api/hl/candles?coin=' + coin + '&interval=1h&start=' + startMs + '&end=' + endMs);
+          if (resp.ok) candles = await resp.json();
+        } catch (e) { }
+
+        const chart = LightweightCharts.createChart(container, {
+          width: container.clientWidth,
+          height: 200,
+          layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#a1a1aa', fontSize: 10 },
+          grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
+          timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true },
+        });
+
+        chartInstances[coin] = chart;
+
+        if (candles && candles.length > 0) {
+          const series = chart.addAreaSeries({
+            lineColor: '#7c6af7',
+            topColor: 'rgba(124, 106, 247, 0.3)',
+            bottomColor: 'rgba(124, 106, 247, 0.01)',
+            lineWidth: 2,
+          });
+          const data = candles
+            .map(c => ({ time: Math.floor(c.t / 1000), value: parseFloat(c.c) }))
+            .filter(d => d.time && d.value);
+          if (data.length) { series.setData(data); chart.timeScale().fitContent(); }
+        } else {
+          // No candle endpoint — show placeholder
+          container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:11px">📊 Aguardando endpoint /api/hl/candles</div>';
+          chartInstances[coin] = null;
+        }
+
+        // Resize observer
+        if (chartInstances[coin]) {
+          new ResizeObserver(() => { if (chartInstances[coin]) chartInstances[coin].applyOptions({ width: container.clientWidth }); }).observe(container);
+        }
+      }
+    }
+
+    // ── Trades History ────────────────────────────────────────────────────────
+    async function loadTrades() {
+      const el = document.getElementById('trades-content');
+      if (!el) return;
+      try {
+        const trades = await api('/api/trades?limit=50');
+        if (!trades.length) {
+          el.innerHTML = '<div class="empty"><div class="icon">💭</div>Nenhum trade executado ainda</div>';
+          return;
+        }
+        el.innerHTML = `<table class="w-full text-left text-xs text-slate-300">
+          <thead>
+            <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10 pb-2">
+              <th class="pb-2">Data</th>
+              <th class="pb-2">Agente</th>
+              <th class="pb-2">Ativo</th>
+              <th class="pb-2">Lado</th>
+              <th class="pb-2">Tamanho</th>
+              <th class="pb-2">Preço</th>
+              <th class="pb-2">SL</th>
+              <th class="pb-2">TP</th>
+              <th class="pb-2">Conf.</th>
+              <th class="pb-2">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">${trades.map(t => {
+            const sideColor = t.side === 'long' ? 'text-accent-green' : 'text-red-500';
+            const bgClass = t.side === 'long' ? 'bg-accent-green/20 text-accent-green' : 'bg-red-500/20 text-red-500';
+            const statusColor = t.status === 'executed' ? 'text-accent-green' : 'text-red-500';
+            return `<tr class="hover:bg-white/5 transition-colors">
+              <td class="py-3 text-[10px] text-slate-500">${fmtDate(t.created_at)}</td>
+              <td class="py-3 flex items-center gap-1"><span class="bg-black/20 border border-white/5 px-1 py-0.5 rounded text-[10px]">${agentEmojis[t.agent_id] || '🤖'}</span> <span class="text-white font-bold">${agentNames[t.agent_id] || t.agent_id}</span></td>
+              <td class="py-3 text-white font-bold">${esc(t.coin)}</td>
+              <td class="py-3"><span class="${bgClass} px-1.5 py-0.5 rounded font-bold uppercase text-[9px]">${(t.side || '').toUpperCase()}</span></td>
+              <td class="py-3">${t.size}</td>
+              <td class="py-3 font-bold text-white">$${t.entry_price ? fmtPrice(t.entry_price) : '–'}</td>
+              <td class="py-3 text-red-500">${t.sl_price ? '$' + fmtPrice(t.sl_price) : '–'}</td>
+              <td class="py-3 text-accent-green">${t.tp_price ? '$' + fmtPrice(t.tp_price) : '–'}</td>
+              <td class="py-3">${t.confidence ? t.confidence.toFixed(1) : '–'}</td>
+              <td class="py-3 font-bold ${statusColor}">${esc(t.status)}</td>
+            </tr>`;
+          }).join('')}</tbody></table>`;
+      } catch (e) {
+        el.innerHTML = `<div class="empty"><div class="icon">❌</div>Erro: ${esc(e.message)}</div>`;
+      }
+    }
+
 
     // ── Portfolio ───────────────────────────────────────────────────────────────
     async function loadPortfolio() {
@@ -1598,24 +2383,61 @@
       try {
         const accounts = await api('/api/hl/portfolio');
         if (!accounts.length) { grid.innerHTML = '<div class="empty">Sem dados de conta</div>'; return; }
-        grid.innerHTML = accounts.map(a => renderAgentCard(a)).join('');
-      } catch (e) {
-        grid.innerHTML = `<div class="empty"><div class="icon">❌</div>Erro: ${esc(e.message)}</div>`;
-      }
+        
+        let totalBalance = 0;
+        let totalPnlAmount = 0;
+        let pnlPercentages = [];
+        
+        accounts.forEach(a => {
+          const val = (a.total_value || a.account_value || 0);
+          const pnl = (a.total_pnl || 0);
+          totalBalance += val;
+          totalPnlAmount += pnl;
+          
+          const startingBalance = val - pnl;
+          if (startingBalance > 0) {
+            pnlPercentages.push((pnl / startingBalance) * 100);
+          }
+        });
+
+        // Update Dashboard Total Balance Banner
+        const elBalance = document.getElementById('dashboard-total-balance');
+        const elPnl = document.getElementById('dashboard-total-pnl');
+        if (elBalance) elBalance.textContent = '$' + fmtDec(totalBalance);
+        if (elPnl) {
+          // Calculate the average PNL percentage across all valid agents
+          const pnlPct = pnlPercentages.length > 0 ? (pnlPercentages.reduce((a, b) => a + b, 0) / pnlPercentages.length) : 0;
+          elPnl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%';
+          elPnl.className = 'text-sm font-bold ' + (pnlPct >= 0 ? 'text-accent-green' : 'text-red-500');
+        }
+
+      const gridHTML = accounts.map(a => renderAgentCard(a)).join('');
+      [document.getElementById('portfolio-grid'), document.getElementById('portfolio-grid-news')].forEach(g => {
+        if (g) g.innerHTML = gridHTML;
+      });
+    } catch (e) {
+      [document.getElementById('portfolio-grid'), document.getElementById('portfolio-grid-news')].forEach(g => {
+        if (g) g.innerHTML = `<div class="text-[10px] text-red-500 bg-red-500/10 p-2 rounded mt-2 border border-red-500/20">Erro: ${esc(e.message)}</div>`;
+      });
+    }
     }
 
+    
     function renderAgentCard(a) {
       const emoji = agentEmojis[a.agent_id] || '🤖';
       const name = agentNames[a.agent_id] || a.agent_id;
       const coin = agentCoins[a.agent_id] || '?';
       if (a.error) {
-        return `<div class="agent-card">
-      <div class="agent-card-header">
-        <div class="agent-card-name">${emoji} ${name}</div>
-        <span style="font-size:10px;color:var(--muted)">${coin}</span>
-      </div>
-      <div class="error-text">Erro: ${esc(a.error)}</div>
-    </div>`;
+        return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm border border-white/5 bg-black/20 px-2 py-1 rounded">${emoji}</span>
+              <span class="text-sm font-bold text-white">${name}</span>
+            </div>
+            <span class="text-[10px] text-slate-500 uppercase tracking-widest">${coin}/USDC</span>
+          </div>
+          <div class="text-[10px] text-red-500 bg-red-500/10 p-2 rounded mt-2 border border-red-500/20">Erro: ${esc(a.error)}</div>
+        </div>`;
       }
       const pnl = a.total_pnl || 0;
       const pnlClass = pnl >= 0 ? 'pos' : 'neg';
@@ -1623,55 +2445,65 @@
       const positions = a.positions || [];
       const posHTML = positions.length
         ? positions.map(p => `
-        <div class="position-row">
-          <div class="position-left">
-            <span class="pos-coin">${esc(p.coin)}</span>
-            <span class="pos-badge ${p.side}">${p.side.toUpperCase()}</span>
-            <span class="pos-size">${Math.abs(p.size)}</span>
+        <div class="flex items-center justify-between text-[10px] bg-black/20 p-2 rounded border border-white/5">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-white">${esc(p.coin)}</span>
+            <span class="px-1.5 py-0.5 rounded font-bold ${p.side === 'long' ? 'bg-accent-green/20 text-accent-green' : 'bg-red-500/20 text-red-500'} uppercase">${p.side}</span>
+            <span class="text-slate-400">${Math.abs(p.size)}</span>
           </div>
-          <div class="position-right">
-            <span class="pos-pnl ${p.unrealized_pnl >= 0 ? 'pos' : 'neg'}">${p.unrealized_pnl >= 0 ? '+' : ''}$${p.unrealized_pnl.toFixed(2)}</span>
-            <button class="btn-sm btn-sell" onclick="openCloseModal('${a.agent_id}','${p.coin}',${Math.abs(p.size)})">Fechar</button>
+          <div class="flex items-center gap-2">
+            <span class="font-bold ${p.unrealized_pnl >= 0 ? 'text-accent-green' : 'text-red-500'}">${p.unrealized_pnl >= 0 ? '+' : ''}$${p.unrealized_pnl.toFixed(2)}</span>
+            <button class="text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-slate-300 transition-colors" onclick="openCloseModal('${a.agent_id}','${p.coin}',${Math.abs(p.size)})">Fechar</button>
           </div>
         </div>`).join('')
-        : '<div class="no-positions">Sem posições abertas</div>';
+        : '<div class="text-[10px] text-slate-500 text-center py-2">Sem posições abertas</div>';
 
       const spotUsdc = a.spot_usdc || 0;
       const totalVal = a.total_value || a.account_value || 0;
       const perpVal = a.account_value || 0;
       const hasSpot = spotUsdc > 0;
 
-      return `<div class="agent-card">
-    <div class="agent-card-header">
-      <div class="agent-card-name">${emoji} ${name}</div>
-      <span style="font-size:10px;color:var(--muted)">${coin}/USDC</span>
-    </div>
-    <div class="agent-balance">$${fmtDec(totalVal)}</div>
-    <div style="display:flex;gap:8px;justify-content:center;font-size:10px;color:var(--muted);margin:-4px 0 4px">
-      <span>Perp: $${fmtDec(perpVal)}</span>
-      <span style="opacity:.4">|</span>
-      <span style="color:${hasSpot ? 'var(--positive)' : 'inherit'}">Spot: $${fmtDec(spotUsdc)}</span>
-    </div>
-    <div class="agent-pnl" style="color:var(--${pnlClass === 'pos' ? 'positive' : 'negative'})">${pnlSign}$${Math.abs(pnl).toFixed(2)} PnL</div>
-    <div class="agent-stats">
-      <div class="agent-stat">
-        <div class="agent-stat-label">Margin Used</div>
-        <div class="agent-stat-val">$${fmtDec(a.total_margin_used)}</div>
-      </div>
-      <div class="agent-stat">
-        <div class="agent-stat-label">Withdrawable</div>
-        <div class="agent-stat-val">$${fmtDec(a.withdrawable)}</div>
-      </div>
-    </div>
-    <div class="positions-section">
-      <div class="positions-label">Posições (${positions.length})</div>
-      ${posHTML}
-    </div>
-    <div class="agent-actions">
-      <button class="btn btn-sm btn-buy" style="flex:1" onclick="openOrderModal('${a.agent_id}', '${coin}')">+ Abrir Long</button>
-      <button class="btn btn-sm btn-sell" style="flex:1" onclick="openOrderModal('${a.agent_id}', '${coin}', false)">+ Abrir Short</button>
-    </div>
-  </div>`;
+      return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
+        <div class="flex justify-between items-start mb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-sm border border-white/5 bg-black/20 px-2 py-1 rounded shadow-sm">${emoji}</span>
+            <span class="text-sm font-bold text-white">${name}</span>
+          </div>
+          <span class="text-[10px] text-slate-500 uppercase tracking-widest">${coin}/USDC</span>
+        </div>
+        
+        <div class="text-2xl font-bold text-white mt-1">$${fmtDec(totalVal)}</div>
+        <div class="text-xs font-bold mt-1" style="color:var(--${pnlClass === 'pos' ? 'positive' : 'negative'})">${pnlSign}$${Math.abs(pnl).toFixed(2)} PnL</div>
+        
+        <div class="flex justify-center items-center gap-2 text-[9px] text-slate-400 mt-3 bg-black/20 rounded py-1 border border-white/5">
+          <span>Perp: $${fmtDec(perpVal)}</span>
+          <span class="opacity-40">|</span>
+          <span style="color:${hasSpot ? 'var(--positive)' : 'inherit'}">Spot: $${fmtDec(spotUsdc)}</span>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 mt-4 text-[10px]">
+          <div class="text-center">
+            <div class="text-slate-500 uppercase tracking-wider mb-1">Margin Used</div>
+            <div class="font-bold text-white">$${fmtDec(a.total_margin_used)}</div>
+          </div>
+          <div class="text-center">
+            <div class="text-slate-500 uppercase tracking-wider mb-1">Withdrawable</div>
+            <div class="font-bold text-white">$${fmtDec(a.withdrawable)}</div>
+          </div>
+        </div>
+        
+        <div class="mt-4 border-t border-white/5 pt-3">
+          <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Posições (${positions.length})</div>
+          <div class="space-y-2">
+            ${posHTML}
+          </div>
+        </div>
+        
+        <div class="mt-5 grid grid-cols-2 gap-2">
+          <button class="bg-accent-green/10 hover:bg-accent-green/20 text-accent-green text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-accent-green/20 outline-none" onclick="openOrderModal('${a.agent_id}', '${coin}')">+ Abrir Long</button>
+          <button class="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-red-500/20 outline-none" onclick="openOrderModal('${a.agent_id}', '${coin}', false)">+ Abrir Short</button>
+        </div>
+      </div>`;
     }
 
     // ── Order Modal ─────────────────────────────────────────────────────────────
@@ -1748,11 +2580,11 @@
         const el = document.getElementById('news-list');
         if (!news.length) { el.innerHTML = '<div class="empty"><div class="icon">📭</div>Sem notícias</div>'; return; }
         el.innerHTML = news.map(n => `
-      <div class="news-item">
-        <span class="news-sentiment">${sentimentIcon(n.sentiment)}</span>
-        <div>
-          <div class="news-title"><a href="${n.url}" target="_blank" style="color:var(--text);text-decoration:none">${esc(n.title)}</a></div>
-          <div class="news-source">${esc(n.source)} · ${fmtDate(n.published_at)}</div>
+      <div class="bg-black/20 p-3 rounded-lg border border-white/5 hover:border-white/10 transition-colors flex gap-3">
+        <span class="text-lg">${sentimentIcon(n.sentiment)}</span>
+        <div class="flex-1">
+          <div class="text-xs font-bold text-slate-200 mb-1 leading-tight"><a href="${n.url}" target="_blank" class="hover:text-primary transition-colors">${esc(n.title)}</a></div>
+          <div class="text-[9px] text-slate-500 uppercase tracking-widest">${esc(n.source)} • ${fmtDate(n.published_at)}</div>
         </div>
       </div>`).join('');
       } catch (e) { console.error('news', e); }
@@ -1874,13 +2706,19 @@
     function renderMessage(role, content, ts) {
       const isUser = role === 'user';
       const avatar = isUser ? '👤' : agentEmojis[currentAgent];
-      return `<div class="message ${role}">
-    <div class="message-avatar">${avatar}</div>
-    <div>
-      <div class="message-bubble">${esc(content)}</div>
-      ${ts ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:${isUser ? 'right' : 'left'}">${fmtDate(ts)}</div>` : ''}
-    </div>
-  </div>`;
+      const align = isUser ? 'justify-end' : 'justify-start';
+      const bubbleBg = isUser ? 'bg-primary text-white border border-primary/20' : 'bg-white/5 text-slate-200 border border-white/5 shadow-inner';
+      const bubbleRadius = isUser ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm';
+
+      return `<div class="flex items-end gap-3 w-full ${align}">
+        ${!isUser ? `<div class="w-8 h-8 rounded-full bg-black/30 border border-white/10 flex items-center justify-center shrink-0 text-sm shadow-lg z-10">${avatar}</div>` : ''}
+        <div class="flex flex-col gap-1 max-w-[80%] items-${isUser ? 'end' : 'start'} relative z-0">
+          <div class="px-4 py-2.5 ${bubbleBg} ${bubbleRadius} text-sm leading-relaxed whitespace-pre-wrap shadow-md">
+            ${esc(content)}
+          </div>
+          ${ts ? `<div class="text-[9px] text-slate-500/80 px-1 font-medium select-none">${fmtDate(ts)}</div>` : ''}
+        </div>
+      </div>`;
     }
 
     function handleKey(e) {
@@ -1899,7 +2737,20 @@
       el.insertAdjacentHTML('beforeend', renderMessage('user', msg, new Date().toISOString()));
       el.scrollTop = el.scrollHeight;
       const bubbleId = 'streaming-' + Date.now();
-      el.insertAdjacentHTML('beforeend', `<div class="message assistant" id="${bubbleId}"><div class="message-avatar">${agentEmojis[currentAgent]}</div><div><div class="message-bubble" id="${bubbleId}-text"><span class="loading-dots">Pensando</span></div></div></div>`);
+      
+      const avatar = agentEmojis[currentAgent];
+      const align = 'justify-start';
+      const bubbleBg = 'bg-white/5 text-slate-200 border border-white/5 shadow-inner';
+      const bubbleRadius = 'rounded-2xl rounded-bl-sm';
+      
+      el.insertAdjacentHTML('beforeend', `<div class="flex items-end gap-3 w-full ${align}" id="${bubbleId}">
+        <div class="w-8 h-8 rounded-full bg-black/30 border border-white/10 flex items-center justify-center shrink-0 text-sm shadow-lg z-10">${avatar}</div>
+        <div class="flex flex-col gap-1 max-w-[80%] items-start relative z-0">
+          <div class="px-4 py-2.5 ${bubbleBg} ${bubbleRadius} text-sm leading-relaxed whitespace-pre-wrap shadow-md" id="${bubbleId}-text">
+            <span class="animate-pulse text-slate-400 font-bold">Pensando...</span>
+          </div>
+        </div>
+      </div>`);
       el.scrollTop = el.scrollHeight;
       try {
         const response = await fetch(`/api/chat/${currentAgent}/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg }) });
@@ -1939,9 +2790,9 @@
 
     function mdToHtml(md) {
       return esc(md)
-        .replace(/^## (.+)$/gm, '<strong style="color:var(--accent)">## $1</strong>')
-        .replace(/^# (.+)$/gm, '<strong style="color:var(--text);font-size:14px"># $1</strong>')
-        .replace(/^---$/gm, '<hr style="border-color:var(--border);margin:8px 0">');
+        .replace(/^## (.+)$/gm, '<strong class="text-primary">## $1</strong>')
+        .replace(/^# (.+)$/gm, '<strong class="text-slate-100 text-sm"># $1</strong>')
+        .replace(/^---$/gm, '<hr class="border-white/10 my-2">');
     }
 
     // ── Logging & Terminal ──────────────────────────────────────────────────────
@@ -1967,19 +2818,81 @@
       };
     }
 
+    // ── WebSocket Real-Time ─────────────────────────────────────────────────────
+    let ws;
+    function connectWS() {
+      let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let host = window.location.host;
+      if (!host || window.location.protocol === 'file:') {
+        host = 'localhost:8000';
+        protocol = 'ws:';
+      }
+      ws = new WebSocket(`${protocol}//${host}/ws`);
+
+      ws.onopen = () => console.log('✅ WebSocket Real-Time conectado');
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleRealTimeUpdate(data);
+        } catch (e) {
+          console.error('WS parse error:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn('❌ WebSocket desconectado. Reconectando em 3s...');
+        setTimeout(connectWS, 3000);
+      };
+
+      ws.onerror = (err) => console.error('WS error:', err);
+    }
+
+    function handleRealTimeUpdate(data) {
+      if (data.type === 'heartbeat_start') {
+        showToast('🔔 Heartbeat iniciado...');
+        addTerminalLine(`[SYSTEM] Heartbeat iniciado em ${new Date().toLocaleTimeString()}`);
+      } else if (data.type === 'heartbeat_completed') {
+        showToast(`✅ Heartbeat concluído: ${data.decision} em ${data.asset}`);
+        addTerminalLine(`[SYSTEM] Heartbeat concluído. Decisão: ${data.decision}`);
+        // Recarrega dados automaticamente
+        loadHeartbeats();
+        loadPortfolio();
+        loadHLMarket();
+      } else if (data.type === 'agent_log') {
+        const agentName = data.agent_id.toUpperCase();
+        addTerminalLine(`[${agentName}] ${data.message}`);
+      }
+    }
+
     function addTerminalLine(log) {
       const terminal = document.getElementById('terminal-content');
       if (!terminal) return;
 
-      const line = document.createElement('div');
-      line.className = 'log-line';
+      // Handle both string and object inputs
+      if (typeof log === 'string') {
+        const match = log.match(/^\[(.+?)\]\s*(.*)$/);
+        log = {
+          ts: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          tag: match ? match[1].toLowerCase() : 'info',
+          msg: match ? match[2] : log,
+        };
+      }
 
-      const tagClass = 'tag-' + (log.tag || 'info').toLowerCase();
+      const tagLower = (log.tag || 'info').toLowerCase();
+      let tagStyles = 'text-slate-200';
+      if (tagLower === 'system') tagStyles = 'bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded ml-1 mr-1 text-center inline-block w-auto';
+      else if (tagLower === 'error') tagStyles = 'text-red-400';
+      else if (tagLower === 'lux' || tagLower === 'scheduler') tagStyles = 'text-slate-100 font-bold';
+      else if (tagLower === 'base') tagStyles = 'text-slate-400';
+
+      const line = document.createElement('div');
+      line.className = 'flex gap-3 py-0.5 hover:bg-white/5 rounded px-1 transition-colors leading-relaxed items-start';
 
       line.innerHTML = `
-          <span class="log-ts">[${log.ts}]</span>
-          <span class="log-tag ${tagClass}">${esc(log.tag)}</span>
-          <span class="log-msg">${esc(log.msg)}</span>
+          <span class="text-slate-500 shrink-0 min-w-[65px]">[${log.ts || ''}]</span>
+          <span class="font-bold uppercase tracking-wider text-[10px] w-[85px] shrink-0 truncate ${tagStyles}">${esc(log.tag || 'INFO')}</span>
+          <span class="text-slate-300 font-mono whitespace-pre-wrap flex-1 break-words">${esc(log.msg || '')}</span>
         `;
 
       // Prepend instead of append to show new logs at top
@@ -1989,8 +2902,6 @@
       while (terminal.childElementCount > 200) {
         terminal.removeChild(terminal.lastChild);
       }
-
-      // No need to scroll to bottom as new logs are at top
     }
 
     function clearTerminal() {
@@ -2033,6 +2944,7 @@
       loadMarket();
       loadHLMarket();
       setupLogStream();
+      connectWS();
       setInterval(() => { loadHLMarket(); loadMarket(); }, 30000);
     });
   </script>
