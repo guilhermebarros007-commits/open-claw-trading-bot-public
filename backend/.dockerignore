@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.env.example
+data.db
+*.bak
+check_*.py
+debug_*.py
+test_*.py
+trigger_*.py
+verify_*.py
+static/index_backup*
+static/rewrite_*.py
+static/test_*.py
+=1.0
+.git

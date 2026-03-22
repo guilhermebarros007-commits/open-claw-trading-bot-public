@@ -1,0 +1,14 @@
+services:
+  openclaw:
+    build: .
+    container_name: openclaw-lux
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./workspaces:/app/workspaces
+    environment:
+      - TZ=America/Sao_Paulo
+      - PORT=8501

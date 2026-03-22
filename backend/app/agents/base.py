@@ -1,11 +1,13 @@
 import logging
 import os
+import json
 from typing import AsyncIterator
 import google.generativeai as genai
 from pathlib import Path
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.memory import db as memory_db
+from app.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -16,17 +18,11 @@ MEMORY_MAX_CHARS = 4000
 # Lux (orchestrator) → Gemini 2.0 Flash: strong reasoning
 # Traders → Gemini 2.0 Flash Lite: fast and efficient
 AGENT_MODELS: dict[str, str] = {
-    "lux":        os.getenv("GEMINI_MODEL_LUX", "gemini-2.0-flash"),
-    "hype_beast": os.getenv("GEMINI_MODEL_TRADERS", "gemini-2.0-flash-lite"),
-    "oracle":     os.getenv("GEMINI_MODEL_TRADERS", "gemini-2.0-flash-lite"),
-    "vitalik":    os.getenv("GEMINI_MODEL_TRADERS", "gemini-2.0-flash-lite"),
+    "lux": os.getenv("GEMINI_MODEL_LUX", "gemini-2.0-flash"),
 }
 
 AGENT_MAX_TOKENS: dict[str, int] = {
-    "lux":        1024,
-    "hype_beast": 512,
-    "oracle":     512,
-    "vitalik":    512,
+    "lux": 8192,  # Gemini 2.5 Flash usa thinking tokens — precisa de margem maior
 }
 
 _DEFAULT_MODEL = os.getenv("GEMINI_MODEL_LUX", "gemini-2.0-flash")
@@ -46,71 +42,41 @@ class BaseAgent:
             return path.read_text(encoding="utf-8")
         return ""
 
-    def _build_system_blocks(self) -> list[dict]:
-        """
-        Returns system prompt as content blocks with prompt caching.
-
-        Block 1 (cached): SOUL.md + all skills/*.md  — static, never changes
-        Block 2 (dynamic): MEMORY.md               — changes after each heartbeat,
-                                                      NOT cached to avoid stale hits
-
-        Cache minimum: 1024 tokens (Sonnet) / 2048 tokens (Haiku).
-        Caching still helps for chat sessions where the user sends multiple
-        messages without a heartbeat in between.
-        """
-        # ── Static block (cache_control: ephemeral) ───────────────────────────
-        static_parts = []
+    def _build_system_string(self) -> str:
+        """Builds plain-text system prompt for Gemini/Anthropic providers."""
+        parts = []
         soul = self._read_file(self.workspace / "SOUL.md")
         if soul:
-            static_parts.append(soul)
-
+            parts.append(soul)
+            
         skills_dir = self.workspace / "skills"
         if skills_dir.exists():
             for skill_file in sorted(skills_dir.glob("*.md")):
                 content = self._read_file(skill_file)
                 if content:
-                    static_parts.append(f"\n---\n# Skill: {skill_file.stem}\n{content}")
-
-        blocks: list[dict] = [
-            {
-                "type": "text",
-                "text": "\n".join(static_parts),
-                "cache_control": {"type": "ephemeral"},
-            }
-        ]
-
-        # ── Dynamic block (no cache) ───────────────────────────────────────────
+                    parts.append(f"\n---\n# Skill: {skill_file.stem}\n{content}")
+                    
         memory = self._read_file(self.workspace / "MEMORY.md")
         if memory and len(memory.strip()) > 20:
             if len(memory) > MEMORY_MAX_CHARS:
+                # Keep latest memory
                 memory = memory[-MEMORY_MAX_CHARS:]
-            blocks.append(
-                {
-                    "type": "text",
-                    "text": f"\n---\n# Memória Acumulada\n{memory}",
-                }
-            )
-
-        return blocks
+            parts.append(f"\n---\n# Memória Acumulada\n{memory}")
+            
+        return "\n".join(parts)
 
     async def chat(
         self, user_message: str, extra_context: str = "", history_limit: int = 10
     ) -> str:
-        system_blocks = self._build_system_blocks()
-
+        system_str = self._build_system_string()
         past = await memory_db.get_chat_history(self.agent_id, limit=history_limit)
         messages = [{"role": m["role"], "content": m["content"]} for m in past]
 
         full_message = f"{extra_context}\n\n{user_message}" if extra_context else user_message
         messages.append({"role": "user", "content": full_message})
 
-        response = await self._client.messages.create(
-            model=self._model,
-            max_tokens=self._max_tokens,
-            system=system_blocks,
-            messages=messages,
-        )
-        reply = response.content[0].text
+        # Forward to sub-class implementation
+        return await self._execute_chat(system_str, messages, full_message)
 
         # Log cache usage when available
         usage = getattr(response, "usage", None)
@@ -170,6 +136,18 @@ class BaseAgent:
 
         memory_path.write_text(new_content, encoding="utf-8")
 
+    async def log_event(self, message: str, level: str = "info"):
+        """Broadcast a reasoning log to all connected WebSocket clients."""
+        payload = {
+            "type": "agent_log",
+            "agent_id": self.agent_id,
+            "level": level,
+            "message": message,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        logger.info(f"[{self.agent_id}] {message}")
+        await ws_manager.broadcast(payload)
+
 
 class GeminiBaseAgent(BaseAgent):
     """
@@ -181,10 +159,7 @@ class GeminiBaseAgent(BaseAgent):
         
         # Determine the specific key for this agent
         key_map = {
-            "lux":        "GOOGLE_API_KEY_LUX",
-            "hype_beast": "GOOGLE_API_KEY_HYPE",
-            "oracle":     "GOOGLE_API_KEY_ORACLE",
-            "vitalik":    "GOOGLE_API_KEY_VITALIK"
+            "lux": "GOOGLE_API_KEY_LUX",
         }
         env_var = key_map.get(agent_id, "GOOGLE_API_KEY_LUX")
         api_key = os.getenv(env_var)
@@ -197,24 +172,38 @@ class GeminiBaseAgent(BaseAgent):
         self._client = genai.GenerativeModel(model_name=self._model)
         logger.info(f"[{agent_id}] model={self._model} (Gemini) max_tokens={self._max_tokens}")
 
+    async def _execute_chat(self, system_str: str, history_blocks: list, full_message: str) -> str:
+        """Internal execution for Gemini."""
+        history = []
+        for m in history_blocks[:-1]: # exclude latest user message
+            role = "user" if m["role"] == "user" else "model"
+            history.append({"role": role, "parts": [m["content"]]})
+        
+        model_with_sys = genai.GenerativeModel(
+            model_name=self._model,
+            system_instruction=system_str
+        )
+        chat_session = model_with_sys.start_chat(history=history)
+        
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            reraise=True
+        )
+        async def _send():
+            return await chat_session.send_message_async(
+                full_message,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=self._max_tokens
+                )
+            )
+
+        response = await _send()
+        return response.text
+
     def _build_system_string(self) -> str:
-        """Builds plain-text system prompt for Gemini."""
-        parts = []
-        soul = self._read_file(self.workspace / "SOUL.md")
-        if soul:
-            parts.append(soul)
-        skills_dir = self.workspace / "skills"
-        if skills_dir.exists():
-            for skill_file in sorted(skills_dir.glob("*.md")):
-                content = self._read_file(skill_file)
-                if content:
-                    parts.append(f"\n---\n# Skill: {skill_file.stem}\n{content}")
-        memory = self._read_file(self.workspace / "MEMORY.md")
-        if memory and len(memory.strip()) > 20:
-            if len(memory) > MEMORY_MAX_CHARS:
-                memory = memory[-MEMORY_MAX_CHARS:]
-            parts.append(f"\n---\n# Memória Acumulada\n{memory}")
-        return "\n".join(parts)
+        # Reuses BaseAgent implementation
+        return super()._build_system_string()
 
     async def chat(
         self, user_message: str, extra_context: str = "", history_limit: int = 10
@@ -245,48 +234,68 @@ class GeminiBaseAgent(BaseAgent):
             return await chat_session.send_message_async(
                 full_message,
                 generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=self._max_tokens
+                    max_output_tokens=self._max_tokens,
+                    # Desabilita thinking para respostas rápidas e JSON limpo
+                    thinking_config=genai.types.ThinkingConfig(thinking_budget=0)
                 )
             )
 
         response = await _send_with_retry()
         reply = response.text
 
-        await memory_db.save_message(self.agent_id, "user", full_message)
-        await memory_db.save_message(self.agent_id, "assistant", reply)
+        # Só salva no histórico se a resposta parece completa (evita contaminação por respostas truncadas)
+        looks_complete = reply.strip().endswith("}") or reply.strip().endswith("```")
+        if looks_complete:
+            await memory_db.save_message(self.agent_id, "user", full_message)
+            await memory_db.save_message(self.agent_id, "assistant", reply)
+        else:
+            logger.warning(f"[{self.agent_id}] Resposta incompleta (len={len(reply)}) — não salva no histórico")
         return reply
 
     def _extract_json(self, text: str) -> dict:
-        """Robustly extracts JSON from potentially noisy LLM output, focusing on the first/last curly braces."""
+        """Robustly extracts JSON from potentially noisy LLM output."""
         import re
         import json
         if not text:
             return {}
         
-        # Clean up markdown backticks if they wrap the entire text
-        text = text.strip()
-        if text.startswith("```"):
-            # Remove ```json or just ```
-            text = re.sub(r"^```(?:json)?\s*", "", text)
-            text = re.sub(r"\s*```$", "", text)
-        
+        # 1. Direct parse attempt after trimming
+        trimmed = text.strip()
         try:
-            return json.loads(text)
-        except Exception:
-            # Fallback: Extract from the first '{' to the last '}'
-            # Using find/rfind is more reliable than greedy regex in some edge cases
-            start = text.find('{')
-            end = text.rfind('}')
-            if start != -1 and end != -1 and end > start:
-                content = text[start:end+1]
-                try:
-                    # Remove potential Javascript comments //
-                    content_clean = re.sub(r"//.*", "", content)
-                    return json.loads(content_clean)
-                except Exception as e:
-                    logger.debug(f"[{self.agent_id}] JSON fallback parse failed: {e}")
+            return json.loads(trimmed)
+        except:
+            pass
             
-        logger.warning(f"[{self.agent_id}] Failed to extract JSON from: {text[:100]}...")
+        # 2. Markdown block removal (```json ... ```)
+        # Capture everything between fences, then brute-force the outermost { }
+        blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+        for block in blocks:
+            block = block.strip()
+            s = block.find('{')
+            e = block.rfind('}')
+            if s != -1 and e != -1 and e > s:
+                try:
+                    cleaned = re.sub(r"//.*", "", block[s:e+1])
+                    cleaned = re.sub(r",\s*}", "}", cleaned)
+                    return json.loads(cleaned)
+                except:
+                    continue
+
+        # 3. Brute force: find first '{' and last '}'
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            content = text[start:end+1]
+            try:
+                # Basic cleaning of common LLM artifacts
+                content = re.sub(r"//.*", "", content) # remove single line comments
+                # Handle a common mistake: "key": "value", } (trailing comma)
+                content = re.sub(r",\s*}", "}", content)
+                return json.loads(content)
+            except Exception as e:
+                logger.debug(f"[{self.agent_id}] JSON brute force failed: {e}")
+
+        logger.warning(f"[{self.agent_id}] Could not extract valid JSON from text (len={len(text)})")
         return {}
 
     async def stream_chat(

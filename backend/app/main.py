@@ -9,25 +9,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app.ws_manager import ws_manager
 from app.memory import db as memory_db
 from app.scheduler import start_scheduler, stop_scheduler, reschedule_heartbeat, current_interval_min
 from app.tools.market import get_market_data
 from app.tools.news import get_crypto_news
-from app.tools.hyperliquid import (
-    get_hl_market_data,
-    get_technical_data,
-    get_account_state,
-    get_all_accounts,
-    execute_market_open,
-    execute_market_close,
-    execute_limit_order,
-    cancel_all_orders,
-)
+from app.tools.ctrader import get_client as get_ct_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,12 +28,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
-VALID_AGENTS = ["lux", "hype_beast", "oracle", "vitalik"]
-TRADER_AGENTS = ["hype_beast", "oracle", "vitalik"]
+VALID_AGENTS = ["lux"]
 
 # ── Logging System ────────────────────────────────────────────────────────────
 LOG_QUEUES = []
 LOG_BUFFER = deque(maxlen=100)
+
 
 class LogStreamHandler(logging.Handler):
     def emit(self, record):
@@ -50,17 +42,15 @@ class LogStreamHandler(logging.Handler):
                 "ts": datetime.datetime.now().strftime("%H:%M:%S"),
                 "tag": record.name.split(".")[-1].upper(),
                 "msg": self.format(record),
-                "level": record.levelname
+                "level": record.levelname,
             }
-            # Add to buffer
             LOG_BUFFER.append(log_entry)
-            # Broadcast to all active queues
             for q in LOG_QUEUES:
                 asyncio.run_coroutine_threadsafe(q.put(log_entry), asyncio.get_event_loop())
         except Exception:
             pass
 
-# Setup logging to capture app logs
+
 stream_handler = LogStreamHandler()
 stream_handler.setFormatter(logging.Formatter("%(message)s"))
 logging.getLogger("app").addHandler(stream_handler)
@@ -74,16 +64,11 @@ async def lifespan(app: FastAPI):
     await memory_db.init_db()
     logger.info("📦 Banco de dados inicializado")
 
-    # Register agents
     import app.agents.registry as registry
     from app.agents.lux import LuxAgent
-    from app.agents.traders import HypeBeastAgent, OracleAgent, VitalikAgent
 
     registry.agents["lux"] = LuxAgent()
-    registry.agents["hype_beast"] = HypeBeastAgent()
-    registry.agents["oracle"] = OracleAgent()
-    registry.agents["vitalik"] = VitalikAgent()
-    logger.info("🤖 Agentes registrados: " + ", ".join(registry.agents.keys()))
+    logger.info("🤖 Agente registrado: lux")
 
     start_scheduler()
     yield
@@ -92,7 +77,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="Trading Agents", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Trading Agents", version="2.0.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
@@ -101,6 +86,19 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 @app.get("/")
 async def root():
     return FileResponse(str(STATIC_DIR / "index.html"))
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        ws_manager.disconnect(websocket)
 
 
 # ── Market & News ─────────────────────────────────────────────────────────────
@@ -139,7 +137,6 @@ class HeartbeatSettings(BaseModel):
 
 @app.post("/api/settings/heartbeat")
 async def update_heartbeat_interval(req: HeartbeatSettings):
-    """Dynamically change heartbeat interval (1–120 min)."""
     if not (1 <= req.interval_min <= 120):
         raise HTTPException(status_code=400, detail="interval_min must be between 1 and 120")
     reschedule_heartbeat(req.interval_min)
@@ -154,7 +151,6 @@ async def get_heartbeat_interval():
 
 @app.get("/api/scheduler/next_run")
 async def get_next_run():
-    """Returns the ISO timestamp of the next scheduled heartbeat."""
     from app.scheduler import scheduler
     job = scheduler.get_job("heartbeat")
     if not job or not job.next_run_time:
@@ -164,7 +160,6 @@ async def get_next_run():
 
 @app.post("/api/telegram/test")
 async def telegram_test():
-    """Send a test message to Telegram."""
     from app.tools.telegram import send_message
     ok = await send_message("🤖 <b>Trading Agents</b> — conexão Telegram OK!")
     return {"sent": ok}
@@ -172,7 +167,6 @@ async def telegram_test():
 
 @app.post("/api/telegram/report")
 async def telegram_report():
-    """Trigger the daily Telegram report manually."""
     from app.tools.telegram import send_daily_report
     ok = await send_daily_report()
     return {"sent": ok}
@@ -186,7 +180,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat/{agent_id}/stream")
 async def chat_stream(agent_id: str, req: ChatRequest):
-    """SSE streaming endpoint — yields text/event-stream chunks."""
     if agent_id not in VALID_AGENTS:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
     import app.agents.registry as registry
@@ -209,7 +202,6 @@ async def chat_stream(agent_id: str, req: ChatRequest):
 
 @app.post("/api/chat/{agent_id}")
 async def chat(agent_id: str, req: ChatRequest):
-    """Non-streaming fallback."""
     if agent_id not in VALID_AGENTS:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
     import app.agents.registry as registry
@@ -229,16 +221,12 @@ async def chat_history(agent_id: str, limit: int = 20):
 
 @app.get("/api/v1/logs/stream")
 async def logs_stream():
-    """SSE endpoint for real-time terminal logs."""
     async def event_generator():
         queue = asyncio.Queue()
         LOG_QUEUES.append(queue)
         try:
-            # Send buffer first
             for entry in list(LOG_BUFFER):
                 yield f"data: {json.dumps(entry)}\n\n"
-            
-            # Streaming
             while True:
                 log_entry = await queue.get()
                 yield f"data: {json.dumps(log_entry)}\n\n"
@@ -267,96 +255,164 @@ async def agent_memory(agent_id: str):
     return {"agent_id": agent_id, "memory": content}
 
 
-# ── Hyperliquid: Market & Technical ──────────────────────────────────────────
+# ── Trades History ────────────────────────────────────────────────────────────
+
+@app.get("/api/trades")
+async def trades_list(agent_id: str = None, limit: int = 50):
+    return await memory_db.get_trades(agent_id=agent_id, limit=limit)
+
+
+# ── cTrader: Market & Technical ───────────────────────────────────────────────
+
+@app.get("/api/ct/market")
+async def ct_market():
+    """Current prices for all Forex pairs."""
+    ct = get_ct_client()
+    return await ct.get_all_prices()
+
+
+@app.get("/api/ct/technical")
+async def ct_technical():
+    """RSI, EMA, MACD, BB, ATR for all tracked pairs."""
+    ct = get_ct_client()
+    return await ct.get_technical_data()
+
+
+@app.get("/api/ct/candles")
+async def ct_candles(symbol: str = "EURUSD", timeframe: str = "H1", count: int = 100):
+    """Raw OHLCV candle data for frontend charts."""
+    ct = get_ct_client()
+    return await ct.get_market_data(symbol, timeframe, count)
+
+
+# ── cTrader: Portfolio ────────────────────────────────────────────────────────
+
+@app.get("/api/ct/portfolio")
+async def ct_portfolio():
+    """Account info + open positions."""
+    ct = get_ct_client()
+    account, positions = await asyncio.gather(
+        ct.get_account_info(),
+        ct.list_positions(),
+    )
+    return [{
+        "agent_id": "lux",
+        "balance": account.get("balance", 0),
+        "equity": account.get("equity", 0),
+        "free_margin": account.get("free_margin", 0),
+        "positions": positions,
+    }]
+
+
+@app.get("/api/ct/account")
+async def ct_account():
+    """Account state for Lux."""
+    ct = get_ct_client()
+    return await ct.get_account_info()
+
+
+# ── cTrader: Order Execution ──────────────────────────────────────────────────
+
+class CTOrderRequest(BaseModel):
+    symbol: str
+    is_buy: bool
+    volume: float
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
+
+class CTCloseRequest(BaseModel):
+    symbol: str
+    volume: float
+    ticket: int
+
+
+@app.post("/api/ct/order/open")
+async def ct_open_order(req: CTOrderRequest):
+    ct = get_ct_client()
+    result = await ct.place_order(
+        symbol=req.symbol,
+        is_buy=req.is_buy,
+        volume=req.volume,
+        stop_loss=req.stop_loss,
+        take_profit=req.take_profit,
+    )
+    if result.get("retcode") != 0 and not result.get("success"):
+        raise HTTPException(status_code=400, detail=str(result))
+    return result
+
+
+@app.post("/api/ct/order/close")
+async def ct_close_order(req: CTCloseRequest):
+    ct = get_ct_client()
+    ok = await ct.close_position(ticket=req.ticket, symbol=req.symbol, volume=req.volume)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Failed to close position")
+    return {"success": True, "ticket": req.ticket}
+
+
+# ── Legacy aliases (keep /api/hl/ working for frontend compat) ────────────────
 
 @app.get("/api/hl/market")
-async def hl_market():
-    """Real-time prices + funding rates + OI from Hyperliquid."""
-    return await get_hl_market_data()
+async def hl_market_alias():
+    return await ct_market()
 
 
 @app.get("/api/hl/technical")
-async def hl_technical():
-    """RSI(14) + EMA9/21 for BTC, ETH, HYPE from 1h candles."""
-    return await get_technical_data()
+async def hl_technical_alias():
+    return await ct_technical()
 
 
-# ── Hyperliquid: Portfolio ────────────────────────────────────────────────────
+@app.get("/api/hl/candles")
+async def hl_candles_alias(coin: str = "EURUSD", interval: str = "H1", start: int = None, end: int = None):
+    return await ct_candles(symbol=coin, timeframe=interval)
+
 
 @app.get("/api/hl/portfolio")
-async def hl_portfolio():
-    """Account state (positions, PnL, margin) for all trader agents."""
-    return await get_all_accounts()
-
-
-@app.get("/api/hl/account/{agent_id}")
-async def hl_account(agent_id: str):
-    """Account state for a specific agent."""
-    if agent_id not in TRADER_AGENTS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not a trader")
-    return await get_account_state(agent_id)
-
-
-# ── Hyperliquid: Order Execution ──────────────────────────────────────────────
-
-class MarketOrderRequest(BaseModel):
-    coin: str
-    is_buy: bool
-    size: float
-    slippage: float = 0.01
-
-
-class LimitOrderRequest(BaseModel):
-    coin: str
-    is_buy: bool
-    size: float
-    price: float
-    reduce_only: bool = False
-
-
-class CloseRequest(BaseModel):
-    coin: str
-    size: Optional[float] = None
-
-
-@app.post("/api/hl/order/{agent_id}/market")
-async def hl_market_order(agent_id: str, req: MarketOrderRequest):
-    """Open a market position for an agent."""
-    if agent_id not in TRADER_AGENTS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not a trader")
-    result = await execute_market_open(agent_id, req.coin, req.is_buy, req.size, req.slippage)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result.get("error", "Order failed"))
-    return result
-
-
-@app.post("/api/hl/order/{agent_id}/limit")
-async def hl_limit_order(agent_id: str, req: LimitOrderRequest):
-    """Place a GTC limit order for an agent."""
-    if agent_id not in TRADER_AGENTS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not a trader")
-    result = await execute_limit_order(
-        agent_id, req.coin, req.is_buy, req.size, req.price, req.reduce_only
-    )
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result.get("error", "Order failed"))
-    return result
+async def hl_portfolio_alias():
+    return await ct_portfolio()
 
 
 @app.post("/api/hl/order/{agent_id}/close")
-async def hl_close_position(agent_id: str, req: CloseRequest):
-    """Close a position for an agent."""
-    if agent_id not in TRADER_AGENTS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not a trader")
-    result = await execute_market_close(agent_id, req.coin, req.size)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result.get("error", "Close failed"))
-    return result
+async def hl_close_alias(agent_id: str, req: CTCloseRequest):
+    return await ct_close_order(req)
 
 
-@app.delete("/api/hl/orders/{agent_id}/{coin}")
-async def hl_cancel_orders(agent_id: str, coin: str):
-    """Cancel all open orders for a coin/agent."""
-    if agent_id not in TRADER_AGENTS:
-        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not a trader")
-    return await cancel_all_orders(agent_id, coin)
+# ── Backtest ──────────────────────────────────────────────────────────────────
+
+class BacktestRequest(BaseModel):
+    symbol:           str   = "EURUSD"
+    count:            int   = 500
+    use_real_data:    bool  = False
+    timeframe:        str   = "M5"
+    rsi_buy:          int   = 30
+    rsi_sell:         int   = 70
+    confluence_min:   int   = 2
+    sl_pct:           float = 0.15
+    tp_pct:           float = 0.25   # TP1 — fecha 70% da posição
+    tp2_pct:          float = 0.45   # TP2 — fecha 30% restante (SL no breakeven)
+    partial_exit_pct: float = 0.70   # fração fechada no TP1
+    csv_content:      Optional[str] = None
+
+
+@app.post("/api/backtest")
+async def run_backtest(req: BacktestRequest):
+    from app.tools.backtest import run_backtest as _run
+    try:
+        result = await _run(
+            symbol=req.symbol,
+            count=req.count,
+            use_real_data=req.use_real_data,
+            timeframe=req.timeframe,
+            csv_content=req.csv_content,
+            rsi_buy=req.rsi_buy,
+            rsi_sell=req.rsi_sell,
+            confluence_min=req.confluence_min,
+            sl_pct=req.sl_pct,
+            tp_pct=req.tp_pct,
+            tp2_pct=req.tp2_pct,
+            partial_exit_pct=req.partial_exit_pct,
+        )
+        return result.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

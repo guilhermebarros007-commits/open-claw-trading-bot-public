@@ -30,6 +30,23 @@ async def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS trades (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id TEXT NOT NULL,
+                coin TEXT NOT NULL,
+                side TEXT NOT NULL,
+                size REAL NOT NULL,
+                entry_price REAL,
+                sl_price REAL,
+                tp_price REAL,
+                status TEXT NOT NULL DEFAULT 'executed',
+                confidence REAL,
+                decision_json TEXT,
+                order_result TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
         await db.commit()
 
 
@@ -96,3 +113,68 @@ async def get_reports(limit: int = 20) -> list[dict]:
         d["news"] = json.loads(d["news"])
         result.append(d)
     return result
+
+
+async def save_trade(
+    agent_id: str,
+    coin: str,
+    side: str,
+    size: float,
+    entry_price: float = 0,
+    sl_price: float = 0,
+    tp_price: float = 0,
+    status: str = "executed",
+    confidence: float = 0,
+    decision_json: str = "",
+    order_result: str = "",
+) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO trades
+               (agent_id, coin, side, size, entry_price, sl_price, tp_price, status, confidence, decision_json, order_result, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agent_id, coin, side, size, entry_price, sl_price, tp_price,
+                status, confidence, decision_json, order_result,
+                datetime.utcnow().isoformat(),
+            )
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_trades_today(agent_id: str = None) -> list[dict]:
+    """Trades executados hoje (UTC) — usado pelo Risk Audit."""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if agent_id:
+            async with db.execute(
+                "SELECT * FROM trades WHERE agent_id = ? AND created_at LIKE ? ORDER BY id DESC",
+                (agent_id, f"{today}%")
+            ) as cursor:
+                rows = await cursor.fetchall()
+        else:
+            async with db.execute(
+                "SELECT * FROM trades WHERE created_at LIKE ? ORDER BY id DESC",
+                (f"{today}%",)
+            ) as cursor:
+                rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_trades(agent_id: str = None, limit: int = 50) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if agent_id:
+            async with db.execute(
+                "SELECT * FROM trades WHERE agent_id = ? ORDER BY id DESC LIMIT ?",
+                (agent_id, limit)
+            ) as cursor:
+                rows = await cursor.fetchall()
+        else:
+            async with db.execute(
+                "SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,)
+            ) as cursor:
+                rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

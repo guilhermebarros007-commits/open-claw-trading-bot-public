@@ -4,174 +4,47 @@ import logging
 import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from typing import Optional
 
-from app.agents.base import BaseAgent, GeminiBaseAgent
-from app.tools.market import format_market_summary
+from app.agents.base import GeminiBaseAgent
 from app.tools.news import format_news_summary
-from app.tools.hyperliquid import (
-    get_hl_market_data,
-    get_technical_data,
-    format_hl_market_summary,
-    format_technical_summary,
-    get_available_usdc,
-    execute_market_open,
-    execute_limit_order,
-    get_sz_decimals,
-    round_to_hl_standard,
-    get_all_accounts,
-    update_sl_trigger,
-)
-from app import agents as registry_module
-
-class LuxDecision(BaseModel):
-    decisao: str = Field(..., description="COMPRAR, VENDER, HOLD ou trailing_stop")
-    ativo_prioritario: str = Field(..., description="BTC, ETH, HYPE ou none")
-    direcao: str = Field(..., description="long, short ou none")
-    total_confidence: float = Field(default=0.0, ge=0.0, le=10.0)
-    consensus_reached: bool = Field(default=False)
-    justificativa: str = Field(..., min_length=10)
-
-    @validator("decisao")
-    def validate_decisao(cls, v):
-        v = v.lower()
-        if any(k in v for k in ["executar", "comprar", "buy"]): return "COMPRAR"
-        if any(k in v for k in ["vender", "sell"]): return "VENDER"
-        if "trailing" in v or "stop" in v: return "trailing_stop"
-        return "AGUARDAR"
-
-    @validator("ativo_prioritario")
-    def validate_ativo(cls, v):
-        v = v.upper()
-        if v in ["BTC", "ETH", "HYPE"]: return v
-        return "NONE"
+from app.tools.ctrader import get_client
 
 logger = logging.getLogger(__name__)
+
+FOREX_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD"]
+MIN_CONFIDENCE = 6.0    # scalper: mais agressivo (era 6.5)
+MIN_CONFLUENCE = 2      # scalper: 2 de 4 indicadores (era 4)
+
+# ── Scalper parameters ─────────────────────────────────────────────────────────
+LOT_BASE   = 0.05    # lote base → ~8.9%/mês sobre $500
+LOT_HIGH   = 0.07    # lote alta confiança (≥8.5) → ~12%/mês
+SL_PCT     = 0.0015  # 0.15% ≈ 15 pips EURUSD
+TP_PCT     = 0.0025  # 0.25% ≈ 25 pips EURUSD   ← TP1: fecha 70% da posição
+TP2_PCT    = 0.0045  # 0.45% ≈ 40 pips EURUSD   ← TP2: fecha 30% restante (SL no BE)
+
+# ── Risk limits ────────────────────────────────────────────────────────────────
+MAX_OPEN_POSITIONS = 2       # máx posições simultâneas abertas
+MAX_DAILY_TRADES   = 6       # scalper: até 6 trades/dia (era 3)
+DAILY_LOSS_LIMIT   = 0.04    # para execução se perda diária > 4% do equity
 
 
 @dataclass
 class HeartbeatReport:
-    id: int | None
-    decision: str       # COMPRAR / VENDER / AGUARDAR
-    asset: str          # BTC / ETH / HYPE / none
-    direction: str      # long / short / none
+    id: Optional[int]
+    decision: str        # COMPRAR / VENDER / HOLD / trailing_stop
+    asset: str           # EURUSD / GBPUSD / ... / none
+    direction: str       # long / short / none
     reasoning: str
-    hype_analysis: str
-    oracle_analysis: str
-    vitalik_analysis: str
     lux_raw: str
     market_snapshot: dict
     news_count: int
     trade_status: str = "none"
-    order_id: str | None = None
+    order_id: Optional[str] = None
     created_at: str = ""
 
     def to_dict(self):
         return asdict(self)
-
-
-def _extract_decision(lux_response: str) -> tuple[str, str, str]:
-    """Extract decision, asset, direction from Lux JSON response."""
-    try:
-        # Try to find JSON block
-        match = re.search(r'\{[^{}]*"decisao"[^{}]*\}', lux_response, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            decisao = data.get("decisao", "hold").lower()
-            ativo = data.get("ativo_prioritario", "none")
-            direcao = data.get("direcao", "none")
-            decision = "AGUARDAR"
-            if "executar" in decisao or "comprar" in decisao or "buy" in decisao:
-                decision = "COMPRAR"
-            elif "vender" in decisao or "sell" in decisao:
-                decision = "VENDER"
-            return decision, ativo, direcao
-    except Exception:
-        pass
-    return "AGUARDAR", "none", "none"
-
-
-def _extract_gold_decision(lux_response: str, agent) -> tuple[str, str, str, dict]:
-    """Extract decision and consensus metadata from Lux Response using Pydantic."""
-    try:
-        data = agent._extract_json(lux_response)
-        if not data:
-            return "AGUARDAR", "none", "none", {}
-        
-        # Validar via Pydantic
-        validated = LuxDecision(**data)
-        
-        return (
-            validated.decisao,
-            validated.ativo_prioritario,
-            validated.direcao,
-            validated.dict()
-        )
-    except Exception as e:
-        logger.warning(f"Pydantic validation failed for Lux: {e}")
-        # Fallback para extração bruta se Pydantic falhar mas houver JSON
-        try:
-             data = agent._extract_json(lux_response)
-             decisao = data.get("decisao", "hold").lower()
-             decision = "AGUARDAR"
-             if any(k in decisao for k in ["executar", "comprar", "buy"]): decision = "COMPRAR"
-             elif any(k in decisao for k in ["vender", "sell"]): decision = "VENDER"
-             return decision, data.get("ativo_prioritario", "none"), data.get("direcao", "none"), data
-        except:
-             return "AGUARDAR", "none", "none", {}
-
-
-def _build_market_brief(
-    market_data: dict,
-    news: list,
-    hl_data: dict | None = None,
-    tech_data: dict | None = None,
-) -> str:
-    sections = []
-
-    # Hyperliquid perp prices + funding (primary source)
-    if hl_data and not hl_data.get("error"):
-        sections.append(f"## Preços Hyperliquid (Perps)\n{format_hl_market_summary(hl_data)}")
-    else:
-        sections.append(f"## Dados de Mercado (CoinGecko)\n{format_market_summary(market_data)}")
-
-    # BTC dominance from CoinGecko (not available on HL)
-    dom = market_data.get("btc_dominance", 0)
-    if dom:
-        sections.append(f"## Macro\nBTC Dominância: {dom:.1f}%")
-
-    # RSI + EMA technical data
-    if tech_data:
-        sections.append(f"## Análise Técnica (1h candles)\n{format_technical_summary(tech_data)}")
-
-    sections.append(f"## Headlines Recentes\n{format_news_summary(news)}")
-    return "\n\n".join(sections)
-
-
-def _summarize_for_memory(analysis: str, market_data: dict, agent_id: str) -> str:
-    btc = market_data.get("btc_price", 0)
-    btc_chg = market_data.get("btc_change_24h", 0)
-    dom = market_data.get("btc_dominance", 0)
-    # Extract JSON sinal if present
-    sinal = "hold"
-    try:
-        match = re.search(r'"sinal"\s*:\s*"(\w+)"', analysis)
-        if match:
-            sinal = match.group(1)
-    except Exception:
-        pass
-    conf = "?"
-    try:
-        match = re.search(r'"confianca"\s*:\s*([\d.]+)', analysis)
-        if match:
-            conf = match.group(1)
-    except Exception:
-        pass
-    return (
-        f"- BTC: ${btc:,.0f} ({btc_chg:+.1f}% 24h), Dominância: {dom:.1f}%\n"
-        f"- Sinal: {sinal} | Confiança: {conf}"
-    )
 
 
 class LuxAgent(GeminiBaseAgent):
@@ -180,181 +53,178 @@ class LuxAgent(GeminiBaseAgent):
 
     async def run_heartbeat(self, market_data: dict, news: list) -> HeartbeatReport:
         from app.memory import db as memory_db
-        import app.agents.registry as registry
 
-        # Fetch HL-native market + technical data in parallel
+        ct = get_client()
+
+        # ── Fetch cTrader data in parallel ────────────────────────────────────
+        await self.log_event("Buscando dados de mercado cTrader...")
         try:
-            hl_data, tech_data = await asyncio.gather(
-                get_hl_market_data(),
-                get_technical_data(),
+            account, positions, tech_data = await asyncio.gather(
+                ct.get_account_info(),
+                ct.list_positions(),
+                ct.get_technical_data(FOREX_PAIRS),
                 return_exceptions=True,
             )
-            if isinstance(hl_data, Exception):
-                logger.warning(f"HL market data failed: {hl_data}")
-                hl_data = None
+            if isinstance(account, Exception):
+                logger.warning(f"Account fetch failed: {account}")
+                account = {}
+            if isinstance(positions, Exception):
+                logger.warning(f"Positions fetch failed: {positions}")
+                positions = []
             if isinstance(tech_data, Exception):
-                logger.warning(f"HL technical data failed: {tech_data}")
-                tech_data = None
+                logger.warning(f"Technical data failed: {tech_data}")
+                tech_data = {}
         except Exception as e:
-            logger.warning(f"HL data fetch error: {e}")
-            hl_data, tech_data = None, None
+            logger.error(f"cTrader data fetch error: {e}")
+            account, positions, tech_data = {}, [], {}
 
-        # ── Capital Protection Check ─────────────────────────────────────────
-        portfolio = await get_all_accounts()
-        position_briefs = []
-        for account in portfolio:
-            for pos in account.get("positions", []):
-                profit_pct = (pos["return_on_equity"] or 0) * 100
-                if profit_pct >= 4.0:
-                    position_briefs.append(
-                        f"- POSIÇÃO EM LUCRO: {pos['coin']} ({pos['side'].upper()}) | Lucro: {profit_pct:.1f}% | Preço Entrada: {pos['entry_price']}"
-                    )
-        
-        pos_context = "\n".join(position_briefs) if position_briefs else "Nenhuma posição em lucro relevante (>4%)."
+        # ── Build market brief ─────────────────────────────────────────────────
+        market_brief = _build_market_brief(account, positions, tech_data, news)
 
-        market_brief = _build_market_brief(market_data, news, hl_data, tech_data)
-        market_brief += f"\n\n### Status de Posições Ativas\n{pos_context}"
+        # ── Single LLM call ────────────────────────────────────────────────────
+        await self.log_event("Analisando mercado e tomando decisão...")
+        lux_raw = await self.chat(market_brief)
 
-        trader_prompt = (
-            f"{market_brief}\n\n"
-            "Analise esses dados de acordo com sua estratégia e responda em JSON no formato do seu SOUL.md."
+        # ── Parse decision ─────────────────────────────────────────────────────
+        lux_data = self._extract_json(lux_raw)
+        decision, asset, direction = _parse_decision(lux_data)
+        total_confidence = float(lux_data.get("total_confidence", 0))
+        confluencia = int(lux_data.get("confluencia_count", 0))
+
+        await self.log_event(
+            f"Decisão: {decision} {asset} ({direction}) | "
+            f"Confiança: {total_confidence} | Confluência: {confluencia}/4"
         )
 
-        # Call each trader
-        hype_analysis = await registry.call_agent("hype_beast", trader_prompt)
-        oracle_analysis = await registry.call_agent("oracle", trader_prompt)
-        vitalik_analysis = await registry.call_agent("vitalik", trader_prompt)
-
-        # Lux aggregates
-        aggregate_prompt = (
-            f"{market_brief}\n\n"
-            f"## Análises dos Traders\n\n"
-            f"### Hype Beast (HYPE/USDC)\n{hype_analysis}\n\n"
-            f"### Oracle (BTC/USDC)\n{oracle_analysis}\n\n"
-            f"### Vitalik (ETH/USDC)\n{vitalik_analysis}\n\n"
-            "Avalie os sinais com critério SHARP e utilize a NOVA REGRA DE CONSENSO GOLD STANDARD:\n"
-            "1. Verifique se há concordância de direção entre pelo menos 2 traders OU se um sinal tem confianca > 8.0.\n"
-            "2. Calcule 'total_confidence' como a média das confianças dos traders que concordam com o sinal.\n"
-            "3. Se houver divergência total (um compra outro vende o mesmo ativo), a decisão deve ser HOLD.\n"
-            "Responda EXCLUSIVAMENTE em formato JSON que siga este modelo:\n"
-            '{"decisao": "COMPRAR/VENDER/HOLD/trailing_stop", "ativo_prioritario": "BTC/ETH/HYPE", "direcao": "long/short", "total_confidence": 0-10, "consensus_reached": true/false, "justificativa": "detalhes"}'
-        )
-        lux_raw = await self.chat(aggregate_prompt)
-
-        # ── Extraction with Gold Standard Consensus ──────────────────────────
-        decision, asset, direction, lux_data = _extract_gold_decision(lux_raw, self)
-
-        total_confidence = lux_data.get("total_confidence", 0)
-        consensus = lux_data.get("consensus_reached", False) or (decision != "AGUARDAR")
-
-        # ── Execution Logic (Gold Standard) ──────────────────────────────────
+        # ── Execution ─────────────────────────────────────────────────────────
         trade_info = {"status": "none", "order_id": None}
-        if decision in ["COMPRAR", "VENDER"] and asset in ["BTC", "ETH", "HYPE"] and consensus:
-            try:
-                from app.tools.hyperliquid import execute_trigger_order
-                
-                agent_mapping = {"BTC": "oracle", "ETH": "vitalik", "HYPE": "hype_beast"}
-                target_agent = agent_mapping.get(asset)
 
-                if target_agent:
-                    balance = await get_available_usdc(target_agent)
-                    # Dynamic Risk Sizing based on confidence
-                    confidence_factor = min(float(total_confidence) / 10.0, 1.0)
-                    risk_amount = balance * 0.10 * (0.5 + (confidence_factor * 0.5)) # Scaling between 5% and 10%
+        if (
+            decision in ["COMPRAR", "VENDER"]
+            and asset != "none"
+            and total_confidence >= MIN_CONFIDENCE
+            and confluencia >= MIN_CONFLUENCE
+        ):
+            # ── Risk Audit ────────────────────────────────────────────────────
+            audit_ok, audit_reason = await _risk_audit(positions, account, memory_db)
+            if not audit_ok:
+                await self.log_event(f"🛡️ Risk Audit bloqueou execução: {audit_reason}", "warn")
+                trade_info["status"] = f"blocked: {audit_reason}"
 
-                    if risk_amount >= 10:
-                        is_buy = (decision == "COMPRAR")
-                        price = hl_data.get(f"{asset.lower()}_price", 0)
-                        
-                        if price > 0:
-                            raw_sz = risk_amount / price
-                            sz_dec = await get_sz_decimals(asset)
-                            px_str, sz_str = round_to_hl_standard(price, raw_sz, sz_dec)
-                            
-                            # Dynamic Slippage
-                            target_slippage = 0.005 if asset in ["BTC", "ETH"] else 0.015
-                            
-                            logger.info(f"🚀 [GOLD STANDARD] Executing {decision} {asset} (Conf: {total_confidence})")
-                            exec_res = await execute_market_open(
-                                agent_id=target_agent,
-                                coin=asset,
-                                is_buy=is_buy,
-                                size=float(sz_str),
-                                slippage=target_slippage
-                            )
-                            
-                            if exec_res.get("success"):
-                                trade_info["status"] = "executed"
-                                trade_info["order_id"] = exec_res.get("result", {}).get("response", {}).get("data", {}).get("statuses", [{}])[0].get("resting", {}).get("oid")
-                                
-                                # Move to Native Exchange Triggers
-                                sl_price = price * (0.97 if is_buy else 1.03) # 3% SL
-                                tp_price = price * (1.10 if is_buy else 0.90) # 10% TP
-                                
-                                sl_px_str, _ = round_to_hl_standard(sl_price, float(sz_str), sz_dec)
-                                tp_px_str, _ = round_to_hl_standard(tp_price, float(sz_str), sz_dec)
-                                
-                                # Concurrent Trigger Placement
-                                await asyncio.gather(
-                                    execute_trigger_order(target_agent, asset, not is_buy, float(sz_str), float(sl_px_str), "sl"),
-                                    execute_trigger_order(target_agent, asset, not is_buy, float(sz_str), float(tp_px_str), "tp")
-                                )
-                                logger.info(f"🛡️ [GOLD STANDARD] Native triggers set at {sl_px_str}/{tp_px_str}")
-                            else:
-                                trade_info["status"] = f"failed: {exec_res.get('error')}"
-                        else:
-                            trade_info["status"] = "failed: price not found"
-                    else:
-                        trade_info["status"] = f"skipped: balance too low (${balance:.2f})"
-            except Exception as trade_err:
-                logger.error(f"Trade execution error: {trade_err}")
-                trade_info["status"] = f"error: {str(trade_err)}"
+            # Check for existing open position on same asset
+            elif asset in [p.get("symbol", "") for p in positions]:
+                await self.log_event(f"⚠️ Posição já aberta em {asset} — ignorando sinal", "warn")
+                trade_info["status"] = "skipped: position already open"
+            else:
+                is_buy = (direction == "long")
+                try:
+                    price_info = await ct.get_symbol_price(asset)
+                    price = price_info.get("ask" if is_buy else "bid", 0)
 
-        # ── Capital Protection Execution ─────────────────────────────────────
-        if decision == "trailing_stop" or lux_data.get("decisao") == "trailing_stop":
-             for account in portfolio:
-                for pos in account.get("positions", []):
-                    profit_pct = (pos["return_on_equity"] or 0) * 100
-                    if profit_pct >= 4.0:
-                        # Move SL to breakeven + 1% profit
-                        is_long = pos["side"] == "long"
-                        entry = pos["entry_price"]
-                        new_sl = entry * (1.01 if is_long else 0.99)
-                        
-                        sz_dec = await get_sz_decimals(pos["coin"])
-                        sl_px_str, _ = round_to_hl_standard(new_sl, abs(pos["size"]), sz_dec)
-                        
-                        logger.info(f"🛡️ [CAPITAL PROTECTION] Moving SL for {pos['coin']} to {sl_px_str} (Profit: {profit_pct:.1f}%)")
-                        await update_sl_trigger(
-                            agent_id=account["agent_id"],
-                            coin=pos["coin"],
-                            new_trigger_px=float(sl_px_str),
-                            size=abs(pos["size"]),
-                            is_buy=not is_long
+                    # Scalper: SL/TP em pips apertados (validado por backteste)
+                    sl_pct = float(lux_data.get("stop_loss_pct", 0.15)) / 100
+                    tp_pct = float(lux_data.get("take_profit_pct", 0.25)) / 100
+                    # Sanitiza: scalper nunca usa > 0.5% SL ou > 1% TP
+                    if sl_pct > 0.005 or sl_pct <= 0: sl_pct = SL_PCT
+                    if tp_pct > 0.01  or tp_pct <= 0: tp_pct = TP_PCT
+                    sl_price = round(price * (1 - sl_pct if is_buy else 1 + sl_pct), 5)
+                    tp_price = round(price * (1 + tp_pct if is_buy else 1 - tp_pct), 5)
+
+                    # Volume dinâmico: 0.05 base → ~8.9%/mês | 0.07 alta conf → ~12%/mês
+                    volume = LOT_HIGH if total_confidence >= 8.5 else LOT_BASE
+
+                    await self.log_event(
+                        f"🚀 Executando {'BUY' if is_buy else 'SELL'} {volume} {asset} "
+                        f"@ {price} | SL={sl_price} TP={tp_price}"
+                    )
+
+                    result = await ct.place_order(
+                        symbol=asset,
+                        is_buy=is_buy,
+                        volume=volume,
+                        stop_loss=sl_price,
+                        take_profit=tp_price,
+                    )
+
+                    if result.get("success") or result.get("retcode") == 0:
+                        ticket = result.get("ticket")
+                        trade_info["status"] = "executed"
+                        trade_info["order_id"] = str(ticket)
+
+                        await memory_db.save_trade(
+                            agent_id="lux",
+                            coin=asset,
+                            side="long" if is_buy else "short",
+                            size=volume,
+                            entry_price=price,
+                            sl_price=sl_price,
+                            tp_price=tp_price,
+                            status="executed",
+                            confidence=total_confidence,
+                            decision_json=json.dumps(lux_data),
+                            order_result=json.dumps(result),
                         )
-                        trade_info["status"] = "capital_protected"
+                        logger.info(f"📝 Trade logged: lux {asset} {'long' if is_buy else 'short'} ticket={ticket}")
+                    else:
+                        trade_info["status"] = f"failed: {result}"
+                except Exception as trade_err:
+                    logger.error(f"Trade execution error: {trade_err}")
+                    trade_info["status"] = f"error: {str(trade_err)}"
 
-        # Update memories
-        mem_entry_hype = _summarize_for_memory(hype_analysis, market_data, "hype_beast")
-        mem_entry_oracle = _summarize_for_memory(oracle_analysis, market_data, "oracle")
-        mem_entry_vitalik = _summarize_for_memory(vitalik_analysis, market_data, "vitalik")
-        mem_entry_lux = (
-            f"- BTC: ${market_data.get('btc_price', 0):,.0f} ({market_data.get('btc_change_24h', 0):+.1f}% 24h)\n"
-            f"- Decisão: {decision} | Ativo: {asset} | Direção: {direction}"
+        # ── Trailing stop / saída parcial ─────────────────────────────────────
+        # RODA SEMPRE quando há posições — NÃO depende do LLM decidir "trailing_stop"
+        # Isso alinha o comportamento live com o backtest (que checa a cada barra)
+        if positions:
+            for pos in positions:
+                profit_pct = float(pos.get("profit_pct", 0))
+                ticket     = pos.get("ticket")
+                symbol_pos = pos.get("symbol", "")
+                entry      = float(pos.get("open_price", 0))
+                is_long    = int(pos.get("type", 0)) == 0
+
+                if entry <= 0 or not ticket:
+                    continue
+
+                try:
+                    if profit_pct >= TP_PCT * 100:
+                        # ── TP1 atingido (+0.25%): SL → breakeven, TP → TP2 (+0.45%)
+                        new_sl = round(entry * ((1 + SL_PCT * 0.1) if is_long else (1 - SL_PCT * 0.1)), 5)
+                        new_tp = round(entry * ((1 + TP2_PCT) if is_long else (1 - TP2_PCT)), 5)
+                        await ct.modify_sl_tp(ticket, new_sl, new_tp)
+                        await self.log_event(
+                            f"🛡️ TP1 atingido em {symbol_pos} (+{profit_pct:.2f}%) | "
+                            f"SL → breakeven={new_sl} | TP → TP2={new_tp}"
+                        )
+                        trade_info["status"] = "tp1_trailing_to_tp2"
+
+                    elif profit_pct > 0.05:
+                        # ── Lucro >0.05%: trail apertado — garante 50% do ganho
+                        trail_sl = round(entry * (
+                            (1 + (profit_pct / 100) * 0.5) if is_long
+                            else (1 - (profit_pct / 100) * 0.5)
+                        ), 5)
+                        await ct.modify_sl_tp(ticket, trail_sl, None)
+                        await self.log_event(
+                            f"📈 Trailing parcial em {symbol_pos} (+{profit_pct:.2f}%) | SL={trail_sl}"
+                        )
+                        trade_info["status"] = "trailing_partial"
+                except Exception as trail_err:
+                    logger.warning(f"Trailing stop error for {symbol_pos}: {trail_err}")
+
+        # ── Memory ────────────────────────────────────────────────────────────
+        mem_entry = (
+            f"- Equity: ${account.get('equity', 0):.2f} | Posições: {len(positions)}\n"
+            f"- Decisão: {decision} | Par: {asset} | Direção: {direction} | Conf: {total_confidence}"
         )
+        await self.append_memory(mem_entry)
 
-        await registry.get_agent("hype_beast").append_memory(mem_entry_hype)
-        await registry.get_agent("oracle").append_memory(mem_entry_oracle)
-        await registry.get_agent("vitalik").append_memory(mem_entry_vitalik)
-        await self.append_memory(mem_entry_lux)
-
-        # Save to DB
+        # ── Save report ───────────────────────────────────────────────────────
         report_id = await memory_db.save_report(
             market_data=market_data,
             news=news,
-            hype_analysis=hype_analysis,
-            oracle_analysis=oracle_analysis,
-            vitalik_analysis=vitalik_analysis,
+            hype_analysis="",
+            oracle_analysis="",
+            vitalik_analysis="",
             lux_decision=decision,
             lux_raw=lux_raw,
         )
@@ -365,9 +235,6 @@ class LuxAgent(GeminiBaseAgent):
             asset=asset,
             direction=direction,
             reasoning=lux_raw[:500],
-            hype_analysis=hype_analysis,
-            oracle_analysis=oracle_analysis,
-            vitalik_analysis=vitalik_analysis,
             lux_raw=lux_raw,
             market_snapshot=market_data,
             news_count=len(news),
@@ -375,3 +242,119 @@ class LuxAgent(GeminiBaseAgent):
             order_id=trade_info["order_id"],
             created_at=datetime.utcnow().isoformat(),
         )
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+async def _risk_audit(positions: list, account: dict, memory_db) -> tuple[bool, str]:
+    """
+    Verifica limites de risco antes de executar qualquer trade.
+    Retorna (pode_operar, motivo).
+    """
+    equity = float(account.get("equity", 500))
+
+    # 1. Máximo de posições simultâneas
+    if len(positions) >= MAX_OPEN_POSITIONS:
+        return False, f"{len(positions)} posições abertas (máx {MAX_OPEN_POSITIONS})"
+
+    # 2. Máximo de trades por dia
+    today_trades = await memory_db.get_trades_today("lux")
+    if len(today_trades) >= MAX_DAILY_TRADES:
+        return False, f"{len(today_trades)} trades hoje (máx {MAX_DAILY_TRADES})"
+
+    # 3. Limite de perda diária (soma do risco máximo dos trades de hoje)
+    #    Cada trade arrisca sl_pct * volume * entry_price → estimamos como (entry - sl) * volume
+    daily_risk = 0.0
+    for t in today_trades:
+        entry = float(t.get("entry_price") or 0)
+        sl = float(t.get("sl_price") or 0)
+        size = float(t.get("size") or 0.01)
+        if entry > 0 and sl > 0:
+            daily_risk += abs(entry - sl) * size * 100_000  # pip value approx
+    if equity > 0 and daily_risk / equity >= DAILY_LOSS_LIMIT:
+        return False, f"risco diário acumulado ${daily_risk:.2f} ≥ {DAILY_LOSS_LIMIT*100:.0f}% do equity"
+
+    return True, "ok"
+
+
+def _parse_decision(data: dict) -> tuple[str, str, str]:
+    decisao_raw = str(data.get("decisao", "hold")).lower()
+    if any(k in decisao_raw for k in ["comprar", "buy", "executar"]):
+        decision = "COMPRAR"
+    elif any(k in decisao_raw for k in ["vender", "sell"]):
+        decision = "VENDER"
+    elif "trailing" in decisao_raw or "stop" in decisao_raw:
+        decision = "trailing_stop"
+    else:
+        decision = "HOLD"
+
+    asset = str(data.get("par", "none")).upper()
+    if asset not in ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD"]:
+        asset = "none"
+
+    direction = str(data.get("direcao", "none")).lower()
+    if direction not in ["long", "short"]:
+        direction = "none"
+
+    return decision, asset, direction
+
+
+def _build_market_brief(
+    account: dict,
+    positions: list,
+    tech_data: dict,
+    news: list,
+) -> str:
+    sections = []
+
+    # Account
+    sections.append(
+        f"## Conta cTrader\n"
+        f"- Balance: ${account.get('balance', 0):.2f}\n"
+        f"- Equity: ${account.get('equity', 0):.2f}\n"
+        f"- Margem livre: ${account.get('free_margin', 0):.2f}\n"
+        f"- Posições abertas: {len(positions)}"
+    )
+
+    # Open positions
+    if positions:
+        pos_lines = []
+        for p in positions:
+            side = "BUY" if int(p.get("type", 0)) == 0 else "SELL"
+            pos_lines.append(
+                f"  - {p.get('symbol')} {side} {p.get('volume')} lotes "
+                f"| Entrada: {p.get('open_price')} | P&L: ${p.get('profit', 0):.2f}"
+            )
+        sections.append("## Posições Abertas\n" + "\n".join(pos_lines))
+    else:
+        sections.append("## Posições Abertas\nNenhuma posição aberta.")
+
+    # Technical data
+    tech_lines = ["## Análise Técnica (H1 candles)"]
+    for sym, ind in tech_data.items():
+        if not ind:
+            continue
+        ema_signal = "BULL" if ind.get("ema_bull") else "BEAR"
+        macd_signal = "BULL" if ind.get("macd_bull") else "BEAR"
+        tech_lines.append(
+            f"\n### {sym}\n"
+            f"- Preço: {ind.get('price')}\n"
+            f"- RSI(14): {ind.get('rsi')}\n"
+            f"- EMA9/21: {ind.get('ema9')}/{ind.get('ema21')} → {ema_signal}\n"
+            f"- MACD: {macd_signal} (hist: {ind.get('macd_hist')})\n"
+            f"- BB%: {ind.get('bb_pct')} (0=banda inf, 1=banda sup)\n"
+            f"- ATR: {ind.get('atr')}\n"
+            f"- OBV: {'↑ crescente' if ind.get('obv_rising') else '↓ decrescente'}"
+        )
+    sections.append("\n".join(tech_lines))
+
+    # News
+    sections.append(f"## Headlines Recentes\n{format_news_summary(news)}")
+
+    sections.append(
+        "## Instrução\n"
+        "Execute as 3 fases do protocolo (Macro → RSI → Confluência) para cada par e "
+        "emita sua decisão final exclusivamente em JSON conforme SOUL.md."
+    )
+
+    return "\n\n".join(sections)

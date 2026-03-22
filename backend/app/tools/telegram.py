@@ -74,14 +74,14 @@ async def send_daily_report() -> bool:
     now = datetime.utcnow().strftime("%d/%m/%Y %H:%M UTC")
     btc = market.get("btc_price", 0)
     eth = market.get("eth_price", 0)
-    hype = market.get("hype_price", 0)
+    hype = market.get("sol_price", 0)
 
     lines = [
         f"📊 <b>Relatório Diário — Trading Agents</b>",
         f"🕐 {now}",
         f"",
         f"<b>Mercado (Testnet HL)</b>",
-        f"  BTC  ${btc:,.0f}  |  ETH  ${eth:,.0f}  |  HYPE  ${hype:,.2f}",
+        f"  BTC  ${btc:,.0f}  |  ETH  ${eth:,.0f}  |  SOL  ${hype:,.2f}",
         f"",
         f"<b>Performance dos Agentes</b>",
     ]

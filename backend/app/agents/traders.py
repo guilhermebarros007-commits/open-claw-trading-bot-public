@@ -1,16 +1,2 @@
-from app.agents.base import GeminiBaseAgent
-
-
-class HypeBeastAgent(GeminiBaseAgent):
-    def __init__(self):
-        super().__init__("hype_beast")
-
-
-class OracleAgent(GeminiBaseAgent):
-    def __init__(self):
-        super().__init__("oracle")
-
-
-class VitalikAgent(GeminiBaseAgent):
-    def __init__(self):
-        super().__init__("vitalik")
+# Trader agents removed — system consolidated to single LuxAgent.
+# See app/agents/lux.py

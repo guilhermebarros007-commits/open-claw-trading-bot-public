@@ -16,3 +16,16 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Backups e temporários
+*.tar.gz
+backend/static/index_backup*.html
+backend/static/rewrite_*.py
+backend/static/test_*.py
+backend/check_*.py
+backend/debug_*.py
+backend/test_*.py
+backend/verify_logic.py
+.claude/settings.local.json
+.agents/
+sdk_libraries/

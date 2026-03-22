@@ -14,7 +14,7 @@ echo "🚀 Iniciando deploy para $VPS..."
 ssh "$VPS" "mkdir -p $REMOTE_DIR"
 
 # ── 2. Sincroniza arquivos (exclui .env, __pycache__, data.db) ─────────────
-rsync -avz --progress \
+rsync -avz --progress --delete \
   --exclude='.env' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \

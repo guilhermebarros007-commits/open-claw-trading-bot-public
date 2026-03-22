@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Trading Agents Dashboard — AI-powered crypto trading on Hyperliquid">
+  <meta name="description" content="Trading Agents Dashboard — AI-powered Forex trading on cTrader">
   <title>Trading Agents — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -887,11 +887,6 @@
       color: var(--muted);
     }
 
-    .report-btc {
-      font-size: 12px;
-      color: var(--text);
-      margin-top: 3px;
-    }
 
     .report-traders {
       display: flex;
@@ -1359,6 +1354,10 @@
 <span class="material-symbols-outlined text-slate-400 group-hover:text-primary">receipt_long</span>
 <span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Trades</span>
 </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('backtest')" id="nav-backtest">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">science</span>
+<span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Backtest</span>
+</a>
 <a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group transition-all" href="javascript:void(0)" onclick="showPage('memory')" id="nav-memory">
 <span class="material-symbols-outlined text-slate-400 group-hover:text-primary">memory</span>
 <span class="text-sm font-medium text-slate-400 group-hover:text-slate-100">Memory</span>
@@ -1373,16 +1372,16 @@
 </div>
 <div class="space-y-3">
 <div class="flex justify-between items-center">
-<span class="text-xs font-semibold">BTC</span>
-<span class="text-xs text-accent-green font-mono">+$64.2k</span>
+<span class="text-xs font-semibold">EUR/USD</span>
+<span class="text-xs font-mono text-slate-400" id="t-eurusd">–</span>
 </div>
 <div class="flex justify-between items-center">
-<span class="text-xs font-semibold">ETH</span>
-<span class="text-xs text-accent-green font-mono">+$3.4k</span>
+<span class="text-xs font-semibold">GBP/USD</span>
+<span class="text-xs font-mono text-slate-400" id="t-gbpusd">–</span>
 </div>
 <div class="flex justify-between items-center">
-<span class="text-xs font-semibold">SOL</span>
-<span class="text-xs text-primary font-mono">$142.5</span>
+<span class="text-xs font-semibold">USD/JPY</span>
+<span class="text-xs font-mono text-slate-400" id="t-usdjpy">–</span>
 </div>
 </div>
 </div>
@@ -1413,10 +1412,11 @@
   
   <div class="relative flex items-center ml-2">
     <select id="hb-interval-select" onchange="setHeartbeatInterval(this.value)" class="appearance-none bg-[#121214] border border-white/10 rounded-lg pl-3 pr-8 py-2 text-[12px] font-bold text-slate-200 outline-none hover:border-white/20 transition-colors cursor-pointer">
+       <option value="5">⚡ 5 min (scalper)</option>
+       <option value="10">⏱ 10 min</option>
        <option value="15">⏱ 15 min</option>
        <option value="30" selected>⏱ 30 min</option>
        <option value="60">⏱ 60 min</option>
-       <option value="120">⏱ 120 min</option>
     </select>
     <span class="material-symbols-outlined absolute right-2 text-slate-400 pointer-events-none text-[16px]">expand_more</span>
   </div>
@@ -1537,7 +1537,7 @@
         
         <div class="glass p-5 rounded-xl border border-white/5 mb-4">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Análise Técnica — 1H Candles (Hyperliquid)</h2>
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Análise Técnica — 1H Candles (cTrader Forex)</h2>
             <button class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-slate-300 transition-colors flex items-center gap-1" onclick="loadTechnical()"><span class="material-symbols-outlined text-[14px]">refresh</span></button>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="tech-grid"></div>
@@ -1552,26 +1552,26 @@
             
             <div class="bg-black/20 rounded-lg p-4 border border-white/5">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">₿</span> BTC</span>
-                <span class="text-sm font-bold text-white" id="chart-price-BTC">$–</span>
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1">EUR/USD</span>
+                <span class="text-sm font-bold text-white" id="chart-price-EURUSD">–</span>
               </div>
-              <div class="h-[200px]" id="chart-BTC"></div>
+              <div class="h-[200px]" id="chart-EURUSD"></div>
             </div>
-            
+
             <div class="bg-black/20 rounded-lg p-4 border border-white/5">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">Ξ</span> ETH</span>
-                <span class="text-sm font-bold text-white" id="chart-price-ETH">$–</span>
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1">GBP/USD</span>
+                <span class="text-sm font-bold text-white" id="chart-price-GBPUSD">–</span>
               </div>
-              <div class="h-[200px]" id="chart-ETH"></div>
+              <div class="h-[200px]" id="chart-GBPUSD"></div>
             </div>
-            
+
             <div class="bg-black/20 rounded-lg p-4 border border-white/5">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><span class="text-lg">◎</span> SOL</span>
-                <span class="text-sm font-bold text-white" id="chart-price-SOL">$–</span>
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1">USD/JPY</span>
+                <span class="text-sm font-bold text-white" id="chart-price-USDJPY">–</span>
               </div>
-              <div class="h-[200px]" id="chart-SOL"></div>
+              <div class="h-[200px]" id="chart-USDJPY"></div>
             </div>
 
           </div>
@@ -1586,16 +1586,16 @@
           <div class="flex flex-col gap-4">
             <!-- Funding Rates -->
             <div class="glass p-5 rounded-xl border border-white/5">
-              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Funding Rates — Hyperliquid Perps</h2>
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Forex Pairs — cTrader</h2>
               <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-300">
                   <thead>
                     <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10 pb-2">
-                      <th class="pb-2">Ativo</th>
-                      <th class="pb-2">Preço Mark</th>
-                      <th class="pb-2">Funding/h</th>
-                      <th class="pb-2">Open Interest</th>
-                      <th class="pb-2">Volume 24h</th>
+                      <th class="pb-2">Par</th>
+                      <th class="pb-2">Bid</th>
+                      <th class="pb-2">Ask</th>
+                      <th class="pb-2">Spread</th>
+                      <th class="pb-2">Tendência</th>
                     </tr>
                   </thead>
                   <tbody id="funding-tbody" class="divide-y divide-white/5">
@@ -1616,37 +1616,27 @@
             </div>
           
             <div class="glass p-4 rounded-xl border border-white/5">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">BTC</div>
-              <div class="text-lg font-bold text-white mt-1" id="m-btc-price">–</div>
-              <div class="text-xs font-bold text-accent-green mt-1" id="m-btc-chg">–</div>
-              <div class="text-[10px] text-slate-500 mt-1" id="m-btc-funding">–</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">EUR/USD</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-eurusd-bid">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">Spread: <span id="m-eurusd-spread">–</span></div>
             </div>
-            
+
             <div class="glass p-4 rounded-xl border border-white/5">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ETH</div>
-              <div class="text-lg font-bold text-white mt-1" id="m-eth-price">–</div>
-              <div class="text-xs font-bold text-accent-green mt-1" id="m-eth-chg">–</div>
-              <div class="text-[10px] text-slate-500 mt-1" id="m-eth-funding">–</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">GBP/USD</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-gbpusd-bid">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">Spread: <span id="m-gbpusd-spread">–</span></div>
             </div>
-            
+
             <div class="glass p-4 rounded-xl border border-white/5">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SOL</div>
-              <div class="text-lg font-bold text-white mt-1" id="m-sol-price">–</div>
-              <div class="text-xs font-bold text-accent-green mt-1" id="m-sol-chg">–</div>
-              <div class="text-[10px] text-slate-500 mt-1" id="m-sol-funding">–</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">USD/JPY</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-usdjpy-bid">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">Spread: <span id="m-usdjpy-spread">–</span></div>
             </div>
-            
+
             <div class="glass p-4 rounded-xl border border-white/5">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">HYPE</div>
-              <div class="text-lg font-bold text-white mt-1" id="m-hype-price">–</div>
-              <div class="text-xs font-bold text-accent-green mt-1" id="m-hype-funding">–</div>
-              <div class="text-[10px] text-slate-500 mt-1">perp — Hyperliquid</div>
-            </div>
-            
-            <div class="glass p-4 rounded-xl border border-white/5">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">BTC DOM.</div>
-              <div class="text-lg font-bold text-white mt-1" id="m-dom">–</div>
-              <div class="text-[10px] text-slate-500 mt-1">dominância de mercado</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AUD/USD</div>
+              <div class="text-lg font-bold text-white mt-1" id="m-audusd-bid">–</div>
+              <div class="text-[10px] text-slate-500 mt-1">Spread: <span id="m-audusd-spread">–</span></div>
             </div>
           </div>
         </div>
@@ -1660,16 +1650,16 @@
           <div class="flex flex-col gap-4">
             <!-- Funding Rates -->
             <div class="glass p-5 rounded-xl border border-white/5">
-              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Funding Rates — Hyperliquid Perps</h2>
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Forex Pairs — cTrader</h2>
               <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-slate-300">
                   <thead>
                     <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10 pb-2">
-                      <th class="pb-2">Ativo</th>
-                      <th class="pb-2">Preço Mark</th>
-                      <th class="pb-2">Funding/h</th>
-                      <th class="pb-2">Open Interest</th>
-                      <th class="pb-2">Volume 24h</th>
+                      <th class="pb-2">Par</th>
+                      <th class="pb-2">Bid</th>
+                      <th class="pb-2">Ask</th>
+                      <th class="pb-2">Spread</th>
+                      <th class="pb-2">Tendência</th>
                     </tr>
                   </thead>
                   <tbody id="funding-tbody-news" class="divide-y divide-white/5">
@@ -1688,7 +1678,7 @@
           <!-- Right Column: News Section -->
           <div class="glass p-5 rounded-xl border border-white/5 h-full flex flex-col">
             <div class="flex justify-between items-center mb-4">
-              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Notícias Crypto</h2>
+              <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Notícias Forex &amp; Mercado</h2>
               <button class="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-slate-300 transition-colors flex items-center justify-center gap-1" onclick="loadNews()">
                 <span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar
               </button>
@@ -1705,9 +1695,6 @@
       <div class="page" id="page-chat">
         <div class="flex gap-4 mb-4" id="agent-tabs">
           <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab active" onclick="setAgent('lux')" id="tab-lux">🌟 Lux</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('hype_beast')" id="tab-hype_beast">🐂 Hype Beast</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('oracle')" id="tab-oracle">🔮 Oracle</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="setAgent('vitalik')" id="tab-vitalik">💎 Vitalik</div>
         </div>
         
         <div class="glass p-0 rounded-xl border border-white/5 flex-1 flex flex-col overflow-hidden">
@@ -1735,13 +1722,129 @@
       </div>
 
 
+      <!-- Backtest Page -->
+      <div class="page" id="page-backtest">
+        <!-- Form -->
+        <div class="glass p-5 rounded-xl border border-white/5 mb-4">
+          <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Configurar Backteste</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">Par</label>
+              <select id="bt-symbol" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+                <option>EURUSD</option><option>GBPUSD</option><option>USDJPY</option><option>AUDUSD</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">Timeframe</label>
+              <select id="bt-timeframe" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+                <option value="M5" selected>M5 (60d reais)</option>
+                <option value="M15">M15 (60d reais)</option>
+                <option value="M30">M30 (60d reais)</option>
+                <option value="H1">H1 (730d reais)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">RSI Oversold ≤</label>
+              <input id="bt-rsi-buy" type="number" value="30" min="15" max="45" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">RSI Overbought ≥</label>
+              <input id="bt-rsi-sell" type="number" value="70" min="55" max="85" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">Confluência mín.</label>
+              <input id="bt-conf" type="number" value="2" min="0" max="4" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">Stop Loss %</label>
+              <input id="bt-sl" type="number" value="0.15" min="0.05" max="5" step="0.05" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">Take Profit %</label>
+              <input id="bt-tp" type="number" value="0.25" min="0.05" max="10" step="0.05" class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none">
+            </div>
+            <div class="flex items-end">
+              <button onclick="runBacktest()" id="bt-run-btn" class="w-full px-4 py-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs font-bold rounded-lg transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                ▶ Executar
+              </button>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="bt-real" class="sr-only peer">
+                <div class="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:bg-[#8b5cf6] after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+              </label>
+              <span class="text-[11px] text-slate-400">📡 Dados Reais (yfinance — 2 anos H1)</span>
+              <span id="bt-real-status" class="text-[10px] text-slate-500 italic"></span>
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 uppercase block mb-1">CSV HistData (opcional — cole o conteúdo abaixo para sobrescrever yfinance)</label>
+              <textarea id="bt-csv" rows="2" placeholder="20030505 170000;1.12340;1.12400;1.12310;1.12370;0&#10;..." class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-slate-400 font-mono outline-none resize-none"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Métricas -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4" id="bt-metrics" style="display:none!important">
+          <div class="glass p-4 rounded-xl border border-white/5 text-center">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Trades</div>
+            <div class="text-2xl font-bold text-white" id="bt-m-trades">–</div>
+          </div>
+          <div class="glass p-4 rounded-xl border border-white/5 text-center">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Win Rate</div>
+            <div class="text-2xl font-bold" id="bt-m-wr">–</div>
+          </div>
+          <div class="glass p-4 rounded-xl border border-white/5 text-center">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Retorno Total</div>
+            <div class="text-2xl font-bold" id="bt-m-ret">–</div>
+          </div>
+          <div class="glass p-4 rounded-xl border border-white/5 text-center">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Sharpe</div>
+            <div class="text-2xl font-bold text-white" id="bt-m-sharpe">–</div>
+          </div>
+          <div class="glass p-4 rounded-xl border border-white/5 text-center">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Max Drawdown</div>
+            <div class="text-2xl font-bold text-red-400" id="bt-m-dd">–</div>
+          </div>
+        </div>
+
+        <!-- Equity Curve -->
+        <div class="glass p-5 rounded-xl border border-white/5 mb-4" id="bt-chart-section" style="display:none">
+          <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Equity Curve</h2>
+          <div id="bt-chart" class="h-[220px]"></div>
+        </div>
+
+        <!-- Tabela de trades -->
+        <div class="glass p-5 rounded-xl border border-white/5" id="bt-table-section" style="display:none">
+          <h2 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Trades Simulados</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead>
+                <tr class="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/10">
+                  <th class="pb-2">#</th><th class="pb-2">Lado</th><th class="pb-2">Entry</th>
+                  <th class="pb-2">SL</th><th class="pb-2">TP</th><th class="pb-2">Saída</th>
+                  <th class="pb-2">Motivo</th><th class="pb-2">P&L %</th><th class="pb-2">P&L $</th><th class="pb-2">Conf</th>
+                </tr>
+              </thead>
+              <tbody id="bt-tbody" class="divide-y divide-white/5"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Placeholder inicial -->
+        <div id="bt-placeholder" class="glass p-10 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-3 text-slate-500">
+          <span class="material-symbols-outlined text-4xl">science</span>
+          <p class="text-sm">Configure os parâmetros acima e clique em <b>Executar</b>.</p>
+          <p class="text-xs text-slate-600">📌 Dados mock são aleatórios — resultados representativos apenas com CSV real do <a href="https://www.histdata.com" target="_blank" class="text-primary underline">histdata.com</a></p>
+        </div>
+      </div>
+
+
       <!-- Memory Page -->
       <div class="page" id="page-memory">
         <div class="flex gap-4 mb-4">
           <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab active" onclick="loadMemory('lux')" id="mtab-lux">🌟 Lux</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('hype_beast')" id="mtab-hype_beast">🐂 Hype Beast</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('oracle')" id="mtab-oracle">🔮 Oracle</div>
-          <div class="px-4 py-2 rounded-lg bg-surface2 border border-border cursor-pointer text-xs font-bold transition-colors hover:bg-white/10 text-slate-400 agent-tab" onclick="loadMemory('vitalik')" id="mtab-vitalik">💎 Vitalik</div>
         </div>
         
         <div class="glass p-5 rounded-xl border border-white/5 flex-1 flex flex-col">
@@ -1798,8 +1901,7 @@
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="warning-box">
-        ⚠ Esta ordem será executada na Hyperliquid <span class="net-name">Mainnet</span> com fundos reais. Confirme os
-        dados antes de prosseguir.
+        ⚠ Esta ordem será executada no cTrader Demo com fundos simulados. Confirme os dados antes de prosseguir.
       </div>
       <div class="form-row">
         <label class="form-label">Agente</label>
@@ -1808,7 +1910,7 @@
       <div class="form-row-2">
         <div>
           <label class="form-label">Ativo</label>
-          <input class="form-input" id="modal-coin" placeholder="BTC">
+          <input class="form-input" id="modal-coin" placeholder="EURUSD">
         </div>
         <div>
           <label class="form-label">Tamanho</label>
@@ -1837,7 +1939,7 @@
         <button class="modal-close" onclick="closeCloseModal()">✕</button>
       </div>
       <div class="warning-box">
-        ⚠ Isso vai fechar a posição com uma ordem de mercado na Hyperliquid <span class="net-name">Mainnet</span>.
+        ⚠ Isso vai fechar a posição com uma ordem de mercado no cTrader Demo.
       </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px" id="close-modal-info"></div>
       <div class="modal-actions">
@@ -1855,9 +1957,9 @@
     let isSending = false;
     let pendingOrder = null;
     let pendingClose = null;
-    const agentEmojis = { lux: '🌟', hype_beast: '🐂', oracle: '🔮', vitalik: '💎' };
-    const agentNames = { lux: 'Lux', hype_beast: 'Hype Beast', oracle: 'Oracle', vitalik: 'Vitalik' };
-    const agentCoins = { hype_beast: 'HYPE', oracle: 'BTC', vitalik: 'ETH' };
+    const agentEmojis = { lux: '🌟' };
+    const agentNames = { lux: 'Lux' };
+    const agentCoins = { lux: 'EURUSD' };
     const pageTitles = {
       heartbeat: '📊 Heartbeat',
       portfolio: '💼 Portfólio',
@@ -1865,6 +1967,7 @@
       news: '📰 Notícias',
       chat: '💬 Chat',
       trades: '📝 Trades',
+      backtest: '🧪 Backtest',
       memory: '🧠 Memória',
     };
 
@@ -1920,23 +2023,9 @@
       }
     }
 
-    // ── Market (CoinGecko) ──────────────────────────────────────────────────────
+    // ── Market (CoinGecko — legacy, no longer shown in UI) ─────────────────────
     async function loadMarket() {
-      try {
-        const d = await api('/api/market');
-        document.getElementById('t-btc').textContent = '$' + fmt(d.btc_price);
-        document.getElementById('t-eth').textContent = '$' + fmt(d.eth_price);
-        document.getElementById('t-dom').textContent = d.btc_dominance + '%';
-        document.getElementById('m-btc-price').textContent = '$' + fmt(d.btc_price);
-        document.getElementById('m-eth-price').textContent = '$' + fmt(d.eth_price);
-        document.getElementById('m-dom').textContent = d.btc_dominance + '%';
-        const btcChg = document.getElementById('m-btc-chg');
-        btcChg.textContent = (d.btc_change_24h >= 0 ? '+' : '') + d.btc_change_24h + '% 24h';
-        btcChg.className = 'change ' + (d.btc_change_24h >= 0 ? 'pos' : 'neg');
-        const ethChg = document.getElementById('m-eth-chg');
-        ethChg.textContent = (d.eth_change_24h >= 0 ? '+' : '') + d.eth_change_24h + '% 24h';
-        ethChg.className = 'change ' + (d.eth_change_24h >= 0 ? 'pos' : 'neg');
-      } catch (e) { console.error('market', e); }
+      // Forex sidebar tickers are now populated by loadHLMarket()
     }
 
     // ── Scheduler (v1.0.1) ──────────────────────────────────────────────────────
@@ -1975,66 +2064,48 @@
       }
     }
 
-    // ── Market (Hyperliquid) ────────────────────────────────────────────────────
+    // ── Market (cTrader Forex) ──────────────────────────────────────────────────
     async function loadHLMarket() {
       try {
-        const d = await api('/api/hl/market');
-        if (d.error) return;
-        const coins = d.watched_coins || ['BTC', 'ETH', 'HYPE'];
+        const d = await api('/api/ct/market');
+        if (!d || d.error) return;
 
-        // Update Network Labels
-        if (d.network) {
-          const isTestnet = d.network.toLowerCase() === 'testnet';
-          document.querySelectorAll('.net-name').forEach(el => {
-            el.textContent = isTestnet ? 'Testnet' : 'Mainnet';
-          });
-          if (isTestnet) {
-            agentCoins.hype_beast = 'SOL';
-          } else {
-            agentCoins.hype_beast = 'HYPE';
-          }
-        }
+        const pairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD'];
+        const ids   = ['eurusd', 'gbpusd', 'usdjpy', 'audusd'];
 
-        // Sidebar Tickers Dynamic Labels
-        ['btc', 'eth', 'hype'].forEach((id, i) => {
+        // Sidebar tickers
+        ['eurusd', 'gbpusd', 'usdjpy'].forEach(id => {
           const el = document.getElementById('t-' + id);
-          if (el) {
-            el.textContent = '$' + (d[coins[i].toLowerCase() + '_price'] ? fmtPrice(d[coins[i].toLowerCase() + '_price']) : '–');
-            if (el.previousElementSibling) el.previousElementSibling.textContent = coins[i];
-          }
+          const sym = id.toUpperCase();
+          if (el && d[sym]) el.textContent = fmtPrice(d[sym].bid);
         });
 
-        // Market Page Cards Dynamic Labels
-        ['btc', 'eth', 'hype'].forEach((id, i) => {
-          const coin = coins[i].toLowerCase();
-          const priceEl = document.getElementById(`m-${id}-price`);
-          if (priceEl) {
-            priceEl.textContent = '$' + (d[coin + '_price'] ? fmtPrice(d[coin + '_price']) : '–');
-            if (priceEl.previousElementSibling) priceEl.previousElementSibling.textContent = coins[i];
-
-            const fundingEl = document.getElementById(`m-${id}-funding`);
-            if (fundingEl) {
-              const f = d[coin + '_funding'] || 0;
-              fundingEl.textContent = 'Funding: ' + fmtFunding(f) + '/h';
-            }
-          }
+        // Market page mini-cards
+        ids.forEach(id => {
+          const sym = id.toUpperCase();
+          const entry = d[sym];
+          if (!entry) return;
+          const bidEl = document.getElementById(`m-${id}-bid`);
+          const spdEl = document.getElementById(`m-${id}-spread`);
+          if (bidEl) bidEl.textContent = fmtPrice(entry.bid);
+          if (spdEl) spdEl.textContent = entry.spread != null ? entry.spread.toFixed(1) + ' pip' : '–';
         });
 
-        // Funding table
-        const tbodyHTML = coins.map((c) => {
-          const coin = c.toLowerCase();
-          const f = d[coin + '_funding'] || 0;
-          const fClass = f > 0 ? 'text-accent-green' : (f < 0 ? 'text-red-500' : 'text-slate-400');
-          const fSign = f > 0 ? '+' : '';
+        // Forex pairs table
+        const tbodyHTML = pairs.map(sym => {
+          const entry = d[sym] || {};
+          const bid = entry.bid != null ? fmtPrice(entry.bid) : '–';
+          const ask = entry.ask != null ? fmtPrice(entry.ask) : '–';
+          const spread = entry.spread != null ? entry.spread.toFixed(1) : '–';
           return `<tr>
-        <td class="py-3 font-bold text-white">${c}</td>
-        <td class="py-3">$${fmt2(d[coin + '_mark_price'] || 0)}</td>
-        <td class="py-3 ${fClass}">${fSign}${(f * 100).toFixed(4)}%</td>
-        <td class="py-3">$${fmtB(d[coin + '_oi'] || 0)}</td>
-        <td class="py-3">$${fmtB(d[coin + '_volume_24h'] || 0)}</td>
+        <td class="py-3 font-bold text-white">${sym.slice(0,3)}/${sym.slice(3)}</td>
+        <td class="py-3">${bid}</td>
+        <td class="py-3">${ask}</td>
+        <td class="py-3">${spread}</td>
+        <td class="py-3 text-slate-400">–</td>
       </tr>`;
         }).join('');
-        
+
         [document.getElementById('funding-tbody'), document.getElementById('funding-tbody-news')].forEach(tb => {
           if (tb) tb.innerHTML = tbodyHTML;
         });
@@ -2042,12 +2113,12 @@
     }
 
 
-    // ── Technical (Full indicators via pandas-ta) ──────────────────────────────
+    // ── Technical (cTrader indicators) ────────────────────────────────────────
     async function loadTechnical() {
       try {
-        const tech = await api('/api/hl/technical');
-        const coins = (tech.metadata && tech.metadata.watched_coins) || ['BTC', 'ETH', 'SOL'];
-        
+        const tech = await api('/api/ct/technical');
+        const coins = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD'];
+
         // Update Dashboard Banners
         updateDashboardBanners(tech, coins);
 
@@ -2056,118 +2127,43 @@
 
         grid.innerHTML = coins.map(coin => {
           const d = tech[coin];
-          if (!d) return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
-            <div class="flex justify-between items-start mb-2">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
-            </div>
-            <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
-            <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
-            <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
-              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
-              <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
-            </div>
-            <div class="mt-3 space-y-2 text-[10px]">
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">MACD</span>
-                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">Bollinger</span>
-                <span class="font-bold text-white">BB% = ${bbPct}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">ATR(14)</span>
-                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">OBV</span>
-                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
-              </div>
-            </div>
-            <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
-              <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
-                <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
-              </div>
-              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
-            </div>
-          </div>`;
-          if (d.error) return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
-            <div class="flex justify-between items-start mb-2">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
-            </div>
-            <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
-            <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
-            <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
-              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
-              <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
-            </div>
-            <div class="mt-3 space-y-2 text-[10px]">
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">MACD</span>
-                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">Bollinger</span>
-                <span class="font-bold text-white">BB% = ${bbPct}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">ATR(14)</span>
-                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500 uppercase">OBV</span>
-                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
-              </div>
-            </div>
-            <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
-              <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
-                <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
-              </div>
-              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
-            </div>
+          if (!d || d.error) return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-center items-center">
+            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">${coin.slice(0,3)}/${coin.slice(3)}</div>
+            <div class="text-xs text-slate-500">${d && d.error ? d.error : 'Sem dados'}</div>
           </div>`;
 
-          const rsi = d.rsi_14 || 50;
-          const rsiClass = rsi >= 70 ? 'overbought' : rsi <= 30 ? 'oversold' : 'neutral';
+          const rsi = d.rsi != null ? d.rsi : 50;
           const rsiLabel = rsi >= 70 ? 'SOBRECOMPRA' : rsi <= 30 ? 'SOBREVENDA' : 'RSI(14) neutro';
-          const trend = d.trend_ema || 'BEAR';
-          const trendClass = trend === 'BULL' ? 'tech-trend-bull' : 'tech-trend-bear';
-          const macdTrend = d.macd_trend || '?';
+          const trend = d.ema_bull ? 'BULL' : 'BEAR';
+          const trendClass = d.ema_bull ? 'tech-trend-bull' : 'tech-trend-bear';
+          const macdTrend = d.macd_bull ? 'BULL' : 'BEAR';
+          const bbPct = d.bb_pct != null ? Math.round(d.bb_pct * 100) + '%' : '–';
 
-          // Confidence based on multi-indicator
-          let conf = 5;
-          if (trend === 'BULL' && rsi < 70) conf += 1;
-          if (trend === 'BEAR' && rsi > 30) conf += 1;
-          if (rsi > 80 || rsi < 20) conf += 2;
-          if (macdTrend === trend) conf += 1;
-          if (d.bb_upper && d.bb_lower && d.last_close) {
-            if (d.last_close <= d.bb_lower) conf += 1;
-            else if (d.last_close >= d.bb_upper) conf += 0.5;
-          }
-          const confPct = Math.min(conf / 10 * 100, 100);
-          const confColor = conf >= 7 ? 'var(--positive)' : conf >= 5 ? 'var(--hold)' : 'var(--sell)';
-
-          // Bollinger Band position
-          let bbPct = '?';
-          if (d.bb_upper && d.bb_lower && d.last_close) {
-            const range = d.bb_upper - d.bb_lower;
-            bbPct = range > 0 ? Math.round((d.last_close - d.bb_lower) / range * 100) + '%' : '50%';
-          }
+          // Confluence score (0–6)
+          let conf = 0;
+          if (d.ema_bull) conf++;
+          if (d.macd_bull) conf++;
+          if (rsi < 40 || rsi > 60) conf++;
+          if (d.bb_pct != null && (d.bb_pct < 0.2 || d.bb_pct > 0.8)) conf++;
+          if (d.obv_rising) conf++;
+          const confPct = Math.round(conf / 6 * 100);
+          const confColor = conf >= 4 ? 'var(--positive)' : conf >= 3 ? 'var(--hold)' : 'var(--sell)';
 
           return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
             <div class="flex justify-between items-start mb-2">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin}</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${coin.slice(0,3)}/${coin.slice(3)}</div>
+              <div class="text-[10px] text-slate-400">${d.price != null ? fmtPrice(d.price) : '–'}</div>
             </div>
             <div class="text-3xl font-bold text-white tracking-tight">${rsi.toFixed(1)}</div>
             <div class="text-[10px] text-slate-400 mt-1">${rsiLabel}</div>
             <div class="flex justify-between items-center text-[10px] mt-1 border-b border-white/5 pb-2">
-              <span class="text-slate-500">EMA9: ${d.ema9 ? fmtPrice(d.ema9) : '–'}</span>
+              <span class="text-slate-500">EMA9: ${d.ema9 != null ? fmtPrice(d.ema9) : '–'}</span>
               <span class="font-bold ${trendClass === 'tech-trend-bull' ? 'text-accent-green' : 'text-red-500'}">${trend === 'BULL' ? '↑ BULL' : '↓ BEAR'}</span>
             </div>
             <div class="mt-3 space-y-2 text-[10px]">
               <div class="flex justify-between">
                 <span class="text-slate-500 uppercase">MACD</span>
-                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_histogram != null ? '(' + d.macd_histogram.toFixed(2) + ')' : ''}</span>
+                <span class="font-bold" style="color:${macdTrend === 'BULL' ? 'var(--positive)' : 'var(--negative)'}">${macdTrend} ${d.macd_hist != null ? '(' + d.macd_hist.toFixed(5) + ')' : ''}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-slate-500 uppercase">Bollinger</span>
@@ -2175,18 +2171,18 @@
               </div>
               <div class="flex justify-between">
                 <span class="text-slate-500 uppercase">ATR(14)</span>
-                <span class="font-bold text-white">${d.atr_14 != null ? d.atr_14.toFixed(2) : '–'}</span>
+                <span class="font-bold text-white">${d.atr != null ? d.atr.toFixed(5) : '–'}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-slate-500 uppercase">OBV</span>
-                <span class="font-bold text-white">${d.obv != null ? fmtB(d.obv) : '–'}</span>
+                <span class="font-bold text-white">${d.obv_rising != null ? (d.obv_rising ? '↑ crescente' : '↓ decrescente') : '–'}</span>
               </div>
             </div>
             <div class="mt-4 pt-3 border-t border-white/5 flex items-end justify-between gap-3">
               <div class="flex-1 h-1 bg-white/5 rounded-full overflow-hidden mt-1 relative">
                 <div class="absolute inset-y-0 left-0" style="width:${confPct}%; background:${confColor}"></div>
               </div>
-              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf.toFixed(1)}/10</span>
+              <span class="text-[9px] font-bold text-slate-500">Conf: ${conf}/6</span>
             </div>
           </div>`;
         }).join('');
@@ -2195,13 +2191,13 @@
 
     function updateDashboardBanners(tech, coins) {
       if (!tech || !coins.length) return;
-      const primaryCoin = coins.includes('SOL') ? 'SOL' : coins[0];
+      const primaryCoin = coins.includes('EURUSD') ? 'EURUSD' : coins[0];
       const d = tech[primaryCoin];
       if (!d || d.error) return;
 
-      const rsi = d.rsi_14 || 50;
-      const trend = d.trend_ema || 'BEAR';
-      const macdTrend = d.macd_trend || 'Neutral';
+      const rsi = d.rsi != null ? d.rsi : 50;
+      const trend = d.ema_bull ? 'BULL' : 'BEAR';
+      const macdTrend = d.macd_bull ? 'BULL' : 'BEAR';
 
       // Update Technical Analysis Banner
       const elRsi = document.getElementById('dashboard-tech-rsi');
@@ -2222,16 +2218,13 @@
       const elDecIcon = document.getElementById('dashboard-decision-icon');
       const elDecIconBg = document.getElementById('dashboard-decision-icon-bg');
 
-      let conf = 5;
-      if (trend === 'BULL' && rsi < 70) conf += 1;
-      if (trend === 'BEAR' && rsi > 30) conf += 1;
-      if (rsi > 80 || rsi < 20) conf += 2;
-      if (macdTrend === trend) conf += 1;
-      if (d.bb_upper && d.bb_lower && d.last_close) {
-        if (d.last_close <= d.bb_lower) conf += 1;
-        else if (d.last_close >= d.bb_upper) conf += 0.5;
-      }
-      const confPct = Math.min(conf / 10 * 100, 100);
+      let conf = 0;
+      if (d.ema_bull) conf++;
+      if (d.macd_bull) conf++;
+      if (rsi < 40 || rsi > 60) conf++;
+      if (d.bb_pct != null && (d.bb_pct < 0.2 || d.bb_pct > 0.8)) conf++;
+      if (d.obv_rising) conf++;
+      const confPct = Math.round(conf / 6 * 100);
 
       if (elDecText) {
         elDecText.textContent = trend === 'BULL' ? 'BUY SIGNAL' : 'SELL SIGNAL';
@@ -2262,9 +2255,9 @@
         return;
       }
 
-      const coins = ['BTC', 'ETH', 'SOL'];
+      const coins = ['EURUSD', 'GBPUSD', 'USDJPY'];
       let tech = {};
-      try { tech = await api('/api/hl/technical'); } catch (e) { console.error(e); }
+      try { tech = await api('/api/ct/technical'); } catch (e) { console.error(e); }
 
       for (const coin of coins) {
         const container = document.getElementById('chart-' + coin);
@@ -2273,8 +2266,8 @@
         // Update price label
         const priceEl = document.getElementById('chart-price-' + coin);
         const d = tech[coin];
-        if (priceEl && d && d.last_close) {
-          priceEl.textContent = '$' + fmtPrice(d.last_close);
+        if (priceEl && d && d.price != null) {
+          priceEl.textContent = fmtPrice(d.price);
         }
 
         // Clean previous chart
@@ -2286,9 +2279,7 @@
         // Try fetching candle data
         let candles = [];
         try {
-          const endMs = Date.now();
-          const startMs = endMs - (60 * 60 * 1000 * 60);
-          const resp = await fetch('/api/hl/candles?coin=' + coin + '&interval=1h&start=' + startMs + '&end=' + endMs);
+          const resp = await fetch('/api/ct/candles?symbol=' + coin + '&timeframe=H1&count=60');
           if (resp.ok) candles = await resp.json();
         } catch (e) { }
 
@@ -2312,12 +2303,12 @@
             lineWidth: 2,
           });
           const data = candles
-            .map(c => ({ time: Math.floor(c.t / 1000), value: parseFloat(c.c) }))
+            .map(c => ({ time: c.time, value: parseFloat(c.close) }))
             .filter(d => d.time && d.value);
           if (data.length) { series.setData(data); chart.timeScale().fitContent(); }
         } else {
           // No candle endpoint — show placeholder
-          container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:11px">📊 Aguardando endpoint /api/hl/candles</div>';
+          container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:11px">📊 Aguardando endpoint /api/ct/candles</div>';
           chartInstances[coin] = null;
         }
 
@@ -2381,7 +2372,7 @@
       const grid = document.getElementById('portfolio-grid');
       grid.innerHTML = '<div class="empty"><div class="icon">⏳</div>Carregando contas...</div>';
       try {
-        const accounts = await api('/api/hl/portfolio');
+        const accounts = await api('/api/ct/portfolio');
         if (!accounts.length) { grid.innerHTML = '<div class="empty">Sem dados de conta</div>'; return; }
         
         let totalBalance = 0;
@@ -2439,29 +2430,31 @@
           <div class="text-[10px] text-red-500 bg-red-500/10 p-2 rounded mt-2 border border-red-500/20">Erro: ${esc(a.error)}</div>
         </div>`;
       }
-      const pnl = a.total_pnl || 0;
-      const pnlClass = pnl >= 0 ? 'pos' : 'neg';
-      const pnlSign = pnl >= 0 ? '+' : '';
+      const equity = a.equity || 0;
+      const balance = a.balance || 0;
+      const freeMargin = a.free_margin || 0;
       const positions = a.positions || [];
       const posHTML = positions.length
-        ? positions.map(p => `
+        ? positions.map(p => {
+            const pSym    = p.symbol || '?';
+            const pSide   = p.type !== undefined ? (p.type === 0 ? 'long' : 'short') : (p.side || '?');
+            const pVol    = p.volume !== undefined ? p.volume : Math.abs(p.size || 0);
+            const pPnl    = p.profit !== undefined ? p.profit : (p.unrealized_pnl || 0);
+            const pTicket = p.ticket !== undefined ? p.ticket : null;
+            return `
         <div class="flex items-center justify-between text-[10px] bg-black/20 p-2 rounded border border-white/5">
           <div class="flex items-center gap-2">
-            <span class="font-bold text-white">${esc(p.coin)}</span>
-            <span class="px-1.5 py-0.5 rounded font-bold ${p.side === 'long' ? 'bg-accent-green/20 text-accent-green' : 'bg-red-500/20 text-red-500'} uppercase">${p.side}</span>
-            <span class="text-slate-400">${Math.abs(p.size)}</span>
+            <span class="font-bold text-white">${esc(pSym)}</span>
+            <span class="px-1.5 py-0.5 rounded font-bold ${pSide === 'long' ? 'bg-accent-green/20 text-accent-green' : 'bg-red-500/20 text-red-500'} uppercase">${pSide}</span>
+            <span class="text-slate-400">${pVol} lotes</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="font-bold ${p.unrealized_pnl >= 0 ? 'text-accent-green' : 'text-red-500'}">${p.unrealized_pnl >= 0 ? '+' : ''}$${p.unrealized_pnl.toFixed(2)}</span>
-            <button class="text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-slate-300 transition-colors" onclick="openCloseModal('${a.agent_id}','${p.coin}',${Math.abs(p.size)})">Fechar</button>
+            <span class="font-bold ${pPnl >= 0 ? 'text-accent-green' : 'text-red-500'}">${pPnl >= 0 ? '+' : ''}$${Number(pPnl).toFixed(2)}</span>
+            <button class="text-[9px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-slate-300 transition-colors" onclick="openCloseModal('${a.agent_id}','${pSym}',${pVol},${pTicket})">Fechar</button>
           </div>
-        </div>`).join('')
+        </div>`;
+          }).join('')
         : '<div class="text-[10px] text-slate-500 text-center py-2">Sem posições abertas</div>';
-
-      const spotUsdc = a.spot_usdc || 0;
-      const totalVal = a.total_value || a.account_value || 0;
-      const perpVal = a.account_value || 0;
-      const hasSpot = spotUsdc > 0;
 
       return `<div class="glass p-5 rounded-xl border border-white/5 flex flex-col justify-between">
         <div class="flex justify-between items-start mb-2">
@@ -2469,39 +2462,28 @@
             <span class="text-sm border border-white/5 bg-black/20 px-2 py-1 rounded shadow-sm">${emoji}</span>
             <span class="text-sm font-bold text-white">${name}</span>
           </div>
-          <span class="text-[10px] text-slate-500 uppercase tracking-widest">${coin}/USDC</span>
+          <span class="text-[10px] text-slate-500 uppercase tracking-widest">cTrader Forex</span>
         </div>
-        
-        <div class="text-2xl font-bold text-white mt-1">$${fmtDec(totalVal)}</div>
-        <div class="text-xs font-bold mt-1" style="color:var(--${pnlClass === 'pos' ? 'positive' : 'negative'})">${pnlSign}$${Math.abs(pnl).toFixed(2)} PnL</div>
-        
+
+        <div class="text-2xl font-bold text-white mt-1">$${fmtDec(equity)}</div>
+        <div class="text-xs font-bold mt-1 text-slate-400">Balance: $${fmtDec(balance)}</div>
+
         <div class="flex justify-center items-center gap-2 text-[9px] text-slate-400 mt-3 bg-black/20 rounded py-1 border border-white/5">
-          <span>Perp: $${fmtDec(perpVal)}</span>
+          <span>Equity: $${fmtDec(equity)}</span>
           <span class="opacity-40">|</span>
-          <span style="color:${hasSpot ? 'var(--positive)' : 'inherit'}">Spot: $${fmtDec(spotUsdc)}</span>
+          <span>Margem livre: $${fmtDec(freeMargin)}</span>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4 mt-4 text-[10px]">
-          <div class="text-center">
-            <div class="text-slate-500 uppercase tracking-wider mb-1">Margin Used</div>
-            <div class="font-bold text-white">$${fmtDec(a.total_margin_used)}</div>
-          </div>
-          <div class="text-center">
-            <div class="text-slate-500 uppercase tracking-wider mb-1">Withdrawable</div>
-            <div class="font-bold text-white">$${fmtDec(a.withdrawable)}</div>
-          </div>
-        </div>
-        
+
         <div class="mt-4 border-t border-white/5 pt-3">
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Posições (${positions.length})</div>
           <div class="space-y-2">
             ${posHTML}
           </div>
         </div>
-        
+
         <div class="mt-5 grid grid-cols-2 gap-2">
-          <button class="bg-accent-green/10 hover:bg-accent-green/20 text-accent-green text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-accent-green/20 outline-none" onclick="openOrderModal('${a.agent_id}', '${coin}')">+ Abrir Long</button>
-          <button class="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-red-500/20 outline-none" onclick="openOrderModal('${a.agent_id}', '${coin}', false)">+ Abrir Short</button>
+          <button class="bg-accent-green/10 hover:bg-accent-green/20 text-accent-green text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-accent-green/20 outline-none" onclick="openOrderModal('${a.agent_id}', 'EURUSD')">+ Abrir Long</button>
+          <button class="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold py-2 rounded transition-colors ring-1 ring-red-500/20 outline-none" onclick="openOrderModal('${a.agent_id}', 'EURUSD', false)">+ Abrir Short</button>
         </div>
       </div>`;
     }
@@ -2535,7 +2517,7 @@
       btn.textContent = '⏳ Enviando...';
 
       try {
-        const result = await api(`/api/hl/order/${agentId}/market`, 'POST', { coin, is_buy: isBuy, size, slippage: 0.01 });
+        const result = await api(`/api/ct/order/open`, 'POST', { symbol: coin, is_buy: isBuy, volume: size });
         closeModal();
         showToast(`✅ Ordem enviada: ${isBuy ? 'LONG' : 'SHORT'} ${size} ${coin}`);
         setTimeout(() => loadPortfolio(), 2000);
@@ -2548,10 +2530,10 @@
     }
 
     // ── Close Position Modal ────────────────────────────────────────────────────
-    function openCloseModal(agentId, coin, size) {
-      pendingClose = { agentId, coin, size };
-      document.getElementById('close-modal-title').textContent = `Fechar ${coin} — ${agentNames[agentId]}`;
-      document.getElementById('close-modal-info').textContent = `Agente: ${agentNames[agentId]} | Ativo: ${coin} | Tamanho: ${size}`;
+    function openCloseModal(agentId, coin, size, ticket = null) {
+      pendingClose = { agentId, coin, size, ticket };
+      document.getElementById('close-modal-title').textContent = `Fechar ${coin}`;
+      document.getElementById('close-modal-info').textContent = `Ativo: ${coin} | Volume: ${size}${ticket ? ' | Ticket: ' + ticket : ''}`;
       document.getElementById('close-modal').classList.add('open');
     }
 
@@ -2562,9 +2544,10 @@
 
     async function confirmClosePosition() {
       if (!pendingClose) return;
-      const { agentId, coin, size } = pendingClose;
+      const { coin, size, ticket } = pendingClose;
+      if (!ticket) { showToast('❌ Ticket da posição não encontrado', true); return; }
       try {
-        await api(`/api/hl/order/${agentId}/close`, 'POST', { coin, size });
+        await api(`/api/ct/order/close`, 'POST', { symbol: coin, volume: size, ticket });
         closeCloseModal();
         showToast(`✅ Posição fechada: ${coin}`);
         setTimeout(() => loadPortfolio(), 2000);
@@ -2611,7 +2594,6 @@
       const icon = { COMPRAR: '🟢', VENDER: '🔴', AGUARDAR: '🟡' }[r.lux_decision] || '⚪';
       const badgeClass = { COMPRAR: 'badge-buy', VENDER: 'badge-sell', AGUARDAR: 'badge-hold' }[r.lux_decision] || '';
       const mkt = r.market_data || {};
-      const btc = mkt.btc_price ? '$' + fmt2(mkt.btc_price) : '';
       const id = 'r' + r.id;
       return `
     <div class="report-item" onclick="toggleExpand('${id}')">
@@ -2622,11 +2604,8 @@
           ${r.asset && r.asset !== 'none' ? `<span style="font-size:12px;color:var(--muted)">${r.asset} ${r.direction || ''}</span>` : ''}
         </div>
         <div class="report-time">${fmtDate(r.created_at)}</div>
-        <div class="report-btc">${btc}</div>
         <div class="report-traders">
-          <span class="trader-signal">🐂 ${extractSignal(r.hype_analysis)}</span>
-          <span class="trader-signal">🔮 ${extractSignal(r.oracle_analysis)}</span>
-          <span class="trader-signal">💎 ${extractSignal(r.vitalik_analysis)}</span>
+          <span class="trader-signal">🌟 Lux — ${r.lux_decision || 'HOLD'}</span>
         </div>
         <div class="report-expanded" id="${id}">
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">Decisão Lux:</div>
@@ -2936,6 +2915,138 @@
       toast.style.display = 'block';
       clearTimeout(toastTimeout);
       toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 5000);
+    }
+
+    // ── Backtest ──────────────────────────────────────────────────────────────
+    let btChartInstance = null;
+
+    async function runBacktest() {
+      const btn = document.getElementById('bt-run-btn');
+      const useReal = document.getElementById('bt-real').checked;
+      const statusEl = document.getElementById('bt-real-status');
+      btn.disabled = true;
+      btn.textContent = '⏳ Rodando...';
+      if (useReal) {
+        statusEl.textContent = 'Baixando dados do Yahoo Finance...';
+        btn.textContent = '📡 Baixando...';
+      }
+
+      const payload = {
+        symbol:           document.getElementById('bt-symbol').value,
+        timeframe:        document.getElementById('bt-timeframe').value,
+        count:            parseInt(document.getElementById('bt-count')?.value) || 500,
+        use_real_data:    useReal,
+        rsi_buy:          parseInt(document.getElementById('bt-rsi-buy').value) || 30,
+        rsi_sell:         parseInt(document.getElementById('bt-rsi-sell').value) || 70,
+        confluence_min:   parseInt(document.getElementById('bt-conf').value) || 2,
+        sl_pct:           parseFloat(document.getElementById('bt-sl').value) || 0.15,
+        tp_pct:           parseFloat(document.getElementById('bt-tp').value) || 0.25,
+        tp2_pct:          0.45,
+        partial_exit_pct: 0.70,
+        csv_content:      document.getElementById('bt-csv').value.trim() || null,
+      };
+
+      try {
+        const r = await fetch('/api/backtest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) {
+          const err = await r.json();
+          alert('Erro: ' + (err.detail || r.status));
+          return;
+        }
+        const d = await r.json();
+        renderBacktestResults(d);
+      } catch (e) {
+        alert('Erro de conexão: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Executar';
+        if (statusEl) statusEl.textContent = '';
+      }
+    }
+
+    function renderBacktestResults(d) {
+      // Esconde placeholder, mostra seções
+      document.getElementById('bt-placeholder').style.display = 'none';
+      document.getElementById('bt-metrics').style.removeProperty('display');
+      document.getElementById('bt-chart-section').style.display = 'block';
+      document.getElementById('bt-table-section').style.display = 'block';
+
+      // Métricas
+      const wr   = d.win_rate;
+      const ret  = d.total_return_pct;
+      document.getElementById('bt-m-trades').textContent  = d.trades;
+      const wrEl = document.getElementById('bt-m-wr');
+      wrEl.textContent  = wr.toFixed(1) + '%';
+      wrEl.className    = 'text-2xl font-bold ' + (wr >= 50 ? 'text-accent-green' : 'text-red-400');
+      const retEl = document.getElementById('bt-m-ret');
+      retEl.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%';
+      retEl.className   = 'text-2xl font-bold ' + (ret >= 0 ? 'text-accent-green' : 'text-red-400');
+      document.getElementById('bt-m-sharpe').textContent = d.sharpe_ratio.toFixed(2);
+      document.getElementById('bt-m-dd').textContent     = '-' + d.max_drawdown_pct.toFixed(1) + '%';
+
+      // Equity Curve (LightweightCharts)
+      const container = document.getElementById('bt-chart');
+      if (btChartInstance) { btChartInstance.remove(); container.innerHTML = ''; }
+      if (typeof LightweightCharts !== 'undefined' && d.equity_curve && d.equity_curve.length > 1) {
+        btChartInstance = LightweightCharts.createChart(container, {
+          width: container.clientWidth,
+          height: 220,
+          layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#a1a1aa', fontSize: 10 },
+          grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
+          timeScale: { visible: false },
+        });
+        const series = btChartInstance.addAreaSeries({
+          lineColor: ret >= 0 ? '#22c55e' : '#ef4444',
+          topColor:  ret >= 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)',
+          bottomColor: 'rgba(0,0,0,0.01)',
+          lineWidth: 2,
+        });
+        const chartData = d.equity_curve.map((v, i) => ({ time: i + 1, value: v }));
+        series.setData(chartData);
+        btChartInstance.timeScale().fitContent();
+        new ResizeObserver(() => { if (btChartInstance) btChartInstance.applyOptions({ width: container.clientWidth }); }).observe(container);
+      } else {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:11px">📊 LightweightCharts não carregado</div>';
+      }
+
+      // Tabela de trades
+      const tbody = document.getElementById('bt-tbody');
+      if (!d.trade_list || !d.trade_list.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="py-4 text-center text-slate-500">Nenhum trade gerado com estes parâmetros</td></tr>';
+        return;
+      }
+      tbody.innerHTML = d.trade_list.map((t, i) => {
+        const pos  = t.pnl_pct >= 0;
+        const cls  = pos ? 'text-accent-green' : 'text-red-400';
+        const side = t.side === 'long' ? '🟢 Long' : '🔴 Short';
+        const motMap = {
+          'tp1_partial': '🟢 TP1 (70%)',
+          'tp2':         '🟢 TP2 (30%)',
+          'sl':          '🔴 SL',
+          'sl_be':       '🟡 BE',
+          'eod':         '⚪ EOD',
+          'tp':          '✅ TP',
+        };
+        const mot = motMap[t.exit_reason] || t.exit_reason;
+        return `<tr>
+          <td class="py-2 text-slate-500">${i + 1}</td>
+          <td class="py-2">${side}</td>
+          <td class="py-2 font-mono">${t.entry.toFixed(5)}</td>
+          <td class="py-2 font-mono text-red-400">${t.sl.toFixed(5)}</td>
+          <td class="py-2 font-mono text-accent-green">${t.tp.toFixed(5)}</td>
+          <td class="py-2 font-mono">${t.exit_price.toFixed(5)}</td>
+          <td class="py-2">${mot}</td>
+          <td class="py-2 font-bold ${cls}">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
+          <td class="py-2 font-bold ${cls}">${t.pnl_usd >= 0 ? '+' : ''}$${t.pnl_usd.toFixed(2)}</td>
+          <td class="py-2 text-slate-400">${t.confluence}/4</td>
+        </tr>`;
+      }).join('');
     }
 
     // ── Init ────────────────────────────────────────────────────────────────────

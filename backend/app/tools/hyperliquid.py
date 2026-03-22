@@ -13,8 +13,12 @@ import time
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import httpx
+import pandas as pd
+import pandas_ta_classic as ta
 
 logger = logging.getLogger(__name__)
+
+HL_NETWORK = os.getenv("HL_NETWORK", "mainnet")
 
 # ── Agent wallet config ───────────────────────────────────────────────────────
 
@@ -22,8 +26,9 @@ AGENT_WALLETS: dict[str, dict] = {
     "hype_beast": {
         "address": os.getenv("HL_HYPE_BEAST_ADDRESS", ""),
         "key": os.getenv("HL_HYPE_BEAST_KEY", ""),
-        "primary_coin": "HYPE",
+        "primary_coin": "SOL",
     },
+
     "oracle": {
         "address": os.getenv("HL_ORACLE_ADDRESS", ""),
         "key": os.getenv("HL_ORACLE_KEY", ""),
@@ -36,7 +41,8 @@ AGENT_WALLETS: dict[str, dict] = {
     },
 }
 
-WATCHED_COINS = ["BTC", "ETH", "HYPE"]
+WATCHED_COINS = ["BTC", "ETH", "SOL"]
+
 
 
 def _base_url() -> str:
@@ -82,46 +88,45 @@ def get_exchange(agent_id: str):
     from hyperliquid.info import Info
 
     # Pre-fetch meta para evitar bug de inicialização do SDK no Testnet
-    import asyncio
+    meta, spot_meta = None, None
     try:
-        # Nota: Como get_exchange é síncrono e usado em to_thread em alguns lugares,
-        # mas aqui precisamos de dados assíncronos, vamos usar um loop temporário ou rodar no loop atual.
-        # Mas para simplificar, já que get_exchange é chamado em contextos síncronos,
-        # vamos usar o loop de eventos se ele já existe.
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Estamos num thread ou o loop está rodando, usamos run_coroutine_threadsafe ou similar?
-                # Na verdade, a maioria dos nossos calls são await execute_market_open -> to_thread(market_open) -> get_exchange.
-                # Então estamos em um worker thread.
-                import httpx
-                net = os.getenv("HL_NETWORK", "mainnet")
-                url = ("https://api.hyperliquid.xyz" if net == "mainnet" else "https://api.hyperliquid-testnet.xyz") + "/info"
-                with httpx.Client(timeout=10) as client:
-                    meta = client.post(url, json={"type": "meta"}).json()
-                    spot_meta = client.post(url, json={"type": "spotMeta"}).json()
-            else:
-                meta = loop.run_until_complete(get_meta())
-                spot_meta = None # Spot meta opcional para perps
-        except Exception:
-            meta, spot_meta = None, None
-    except Exception:
-        meta, spot_meta = None, None
+        net = os.getenv("HL_NETWORK", "mainnet")
+        url = ("https://api.hyperliquid.xyz" if net == "mainnet" else "https://api.hyperliquid-testnet.xyz") + "/info"
+        import httpx
+        with httpx.Client(timeout=10) as client:
+            try:
+                meta = client.post(url, json={"type": "meta"}).json()
+            except Exception as e:
+                logger.warning(f"Failed to pre-fetch HL meta: {e}")
+            
+            try:
+                spot_meta = client.post(url, json={"type": "spotMeta"}).json()
+            except Exception as e:
+                logger.warning(f"Failed to pre-fetch HL spotMeta: {e}")
+    except Exception as e:
+        logger.error(f"Error in metadata pre-fetch logic: {e}")
 
     # Monkeypatch de segurança
     original_init = Info.__init__
     def robust_init(self, base_url, skip_ws=False, meta=None, spot_meta=None, perp_dexs=None, timeout=None):
         try:
             original_init(self, base_url, skip_ws, meta, spot_meta, perp_dexs, timeout)
-        except IndexError:
+        except Exception as e:
+            logger.warning(f"Info.__init__ failed (likely Testnet bug), applying fallback. Error: {e}")
             self.base_url = base_url
             self.skip_ws = skip_ws
             if meta and "universe" in meta:
                 self.meta = meta
                 self.name_to_coin = {coin["name"]: coin["name"] for coin in meta["universe"]}
                 self.coin_to_asset = {coin["name"]: i for i, coin in enumerate(meta["universe"])}
-            if spot_meta: self.spot_meta = spot_meta
-
+                self.asset_to_sz_decimals = {i: coin["szDecimals"] for i, coin in enumerate(meta["universe"])}
+            if spot_meta: 
+                self.spot_meta = spot_meta
+                # Also populate spot assets in name_to_coin if possible
+                if "universe" in spot_meta:
+                    for spot_info in spot_meta["universe"]:
+                        self.name_to_coin[spot_info["name"]] = spot_info["name"]
+    
     Info.__init__ = robust_init
     wallet = Account.from_key(key)
     # Passamos meta e spot_meta explicitamente
@@ -165,36 +170,81 @@ def round_to_hl_standard(px: float, sz: float, sz_decimals: int) -> tuple[str, s
     return px_str, sz_str
 
 
-# ── Technical indicators ──────────────────────────────────────────────────────
+# ── Technical indicators (pandas-ta) ──────────────────────────────────────────
 
 
-def _ema(values: list[float], period: int) -> float | None:
-    if len(values) < period:
-        return None
-    k = 2 / (period + 1)
-    ema = sum(values[:period]) / period
-    for v in values[period:]:
-        ema = v * k + ema * (1 - k)
-    return ema
+def _compute_indicators(closes: list[float], highs: list[float], lows: list[float], volumes: list[float]) -> dict:
+    """Compute full technical indicators using pandas-ta-classic."""
+    if len(closes) < 21:
+        return {"rsi_14": 50.0, "ema9": None, "ema21": None, "error": "insufficient candles"}
+
+    df = pd.DataFrame({"close": closes, "high": highs, "low": lows, "volume": volumes})
+
+    # RSI
+    rsi_series = ta.rsi(df["close"], length=14)
+    rsi_val = round(float(rsi_series.iloc[-1]), 2) if rsi_series is not None and not rsi_series.empty else 50.0
+
+    # EMA 9 / 21
+    ema9_series = ta.ema(df["close"], length=9)
+    ema21_series = ta.ema(df["close"], length=21)
+    ema9_val = round(float(ema9_series.iloc[-1]), 4) if ema9_series is not None and not ema9_series.empty else None
+    ema21_val = round(float(ema21_series.iloc[-1]), 4) if ema21_series is not None and not ema21_series.empty else None
+
+    # MACD (12, 26, 9)
+    macd_df = ta.macd(df["close"], fast=12, slow=26, signal=9)
+    macd_val, macd_signal, macd_hist = None, None, None
+    if macd_df is not None and not macd_df.empty:
+        macd_val = round(float(macd_df.iloc[-1, 0]), 4)
+        macd_signal = round(float(macd_df.iloc[-1, 1]), 4)
+        macd_hist = round(float(macd_df.iloc[-1, 2]), 4)
+
+    # Bollinger Bands (20, 2)
+    bbands = ta.bbands(df["close"], length=20, std=2)
+    bb_upper, bb_mid, bb_lower = None, None, None
+    if bbands is not None and not bbands.empty:
+        bb_lower = round(float(bbands.iloc[-1, 0]), 4)
+        bb_mid = round(float(bbands.iloc[-1, 1]), 4)
+        bb_upper = round(float(bbands.iloc[-1, 2]), 4)
+
+    # ATR (14)
+    atr_series = ta.atr(df["high"], df["low"], df["close"], length=14)
+    atr_val = round(float(atr_series.iloc[-1]), 4) if atr_series is not None and not atr_series.empty else None
+
+    # OBV
+    obv_series = ta.obv(df["close"], df["volume"])
+    obv_val = round(float(obv_series.iloc[-1]), 2) if obv_series is not None and not obv_series.empty else None
+
+    trend = "BULL" if (ema9_val and ema21_val and ema9_val > ema21_val) else "BEAR"
+    macd_trend = "BULL" if (macd_hist and macd_hist > 0) else "BEAR"
+
+    return {
+        "rsi_14": rsi_val,
+        "ema9": ema9_val,
+        "ema21": ema21_val,
+        "trend_ema": trend,
+        "macd": macd_val,
+        "macd_signal": macd_signal,
+        "macd_histogram": macd_hist,
+        "macd_trend": macd_trend,
+        "bb_upper": bb_upper,
+        "bb_mid": bb_mid,
+        "bb_lower": bb_lower,
+        "atr_14": atr_val,
+        "obv": obv_val,
+        "last_close": closes[-1] if closes else 0,
+        "volume_1h": volumes[-1] if volumes else 0,
+    }
 
 
 def calculate_rsi(closes: list[float], period: int = 14) -> float:
+    """Backward-compatible RSI using pandas-ta."""
     if len(closes) < period + 1:
         return 50.0
-    gains, losses = [], []
-    for i in range(1, len(closes)):
-        delta = closes[i] - closes[i - 1]
-        gains.append(max(delta, 0.0))
-        losses.append(max(-delta, 0.0))
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-    for i in range(period, len(gains)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return round(100 - (100 / (1 + rs)), 2)
+    series = pd.Series(closes)
+    rsi = ta.rsi(series, length=period)
+    if rsi is not None and not rsi.empty:
+        return round(float(rsi.iloc[-1]), 2)
+    return 50.0
 
 
 # ── Market data ───────────────────────────────────────────────────────────────
@@ -228,7 +278,13 @@ async def get_hl_market_data() -> dict:
             idx = coin_idx.get(coin)
             return ctxs[idx] if idx is not None and idx < len(ctxs) else {}
 
-        data: dict = {"source": "hyperliquid", "fetched_at": datetime.utcnow().isoformat()}
+        data: dict = {
+            "source": "hyperliquid",
+            "fetched_at": datetime.utcnow().isoformat(),
+            "watched_coins": WATCHED_COINS,
+            "network": HL_NETWORK
+        }
+
         for coin in WATCHED_COINS:
             ctx = _ctx(coin)
             data[f"{coin.lower()}_price"] = _mid(coin)
@@ -249,18 +305,44 @@ async def get_hl_market_data() -> dict:
             "error": str(e),
             "btc_price": 0,
             "eth_price": 0,
-            "hype_price": 0,
+            "sol_price": 0,
         }
 
 
 # ── Technical data (candles → RSI + EMA) ─────────────────────────────────────
+
+# ── Candle data for frontend charts ───────────────────────────────────────────
+
+
+async def get_candle_data(coin: str, interval: str = "1h", start_ms: int = None, end_ms: int = None) -> list[dict]:
+    """Fetch raw candle data from Hyperliquid for frontend charts."""
+    now_ms = int(time.time() * 1000)
+    if not end_ms:
+        end_ms = now_ms
+    if not start_ms:
+        start_ms = end_ms - (60 * 60 * 1000 * 60)  # 60 hours back
+
+    try:
+        candles = await _hl_post({
+            "type": "candleSnapshot",
+            "req": {"coin": coin, "interval": interval, "startTime": start_ms, "endTime": end_ms},
+        })
+        return [
+            {"t": int(c["t"]), "o": float(c["o"]), "h": float(c["h"]),
+             "l": float(c["l"]), "c": float(c["c"]), "v": float(c["v"])}
+            for c in candles
+        ]
+    except Exception as e:
+        logger.warning(f"HL candles fetch error for {coin}: {e}")
+        return []
+
 
 _tech_cache: dict = {"data": None, "expires": 0.0}
 _TECH_TTL = 300  # 5 min
 
 
 async def get_technical_data() -> dict:
-    """RSI(14) + EMA9/EMA21 for BTC, ETH, HYPE from 1h Hyperliquid candles."""
+    """RSI(14) + EMA9/EMA21 for BTC, ETH, SOL from 1h Hyperliquid candles."""
     global _tech_cache
     now = time.time()
     if _tech_cache["data"] and now < _tech_cache["expires"]:
@@ -276,26 +358,20 @@ async def get_technical_data() -> dict:
                 "req": {"coin": coin, "interval": "1h", "startTime": start_ms, "endTime": end_ms},
             })
             closes = [float(c["c"]) for c in candles]
+            highs = [float(c["h"]) for c in candles]
+            lows = [float(c["l"]) for c in candles]
             volumes = [float(c["v"]) for c in candles]
-            rsi = calculate_rsi(closes)
-            ema9 = _ema(closes, 9)
-            ema21 = _ema(closes, 21)
-            trend = "BULL" if (ema9 and ema21 and ema9 > ema21) else "BEAR"
-            return coin, {
-                "rsi_14": rsi,
-                "ema9": round(ema9, 4) if ema9 else None,
-                "ema21": round(ema21, 4) if ema21 else None,
-                "trend_ema": trend,
-                "last_close": closes[-1] if closes else 0,
-                "volume_1h": volumes[-1] if volumes else 0,
-                "candles": len(candles),
-            }
+
+            indicators = _compute_indicators(closes, highs, lows, volumes)
+            indicators["candles"] = len(candles)
+            return coin, indicators
         except Exception as e:
             logger.warning(f"HL candles error for {coin}: {e}")
             return coin, {"rsi_14": 50.0, "ema9": None, "ema21": None, "error": str(e)}
 
     results_list = await asyncio.gather(*[_fetch_coin(c) for c in WATCHED_COINS])
     results = dict(results_list)
+    results["metadata"] = {"watched_coins": WATCHED_COINS}
 
     _tech_cache["data"] = results
     _tech_cache["expires"] = now + _TECH_TTL
@@ -403,6 +479,43 @@ async def get_available_usdc(agent_id: str) -> float:
     if "error" in state:
         return 0.0
     return state.get("spot_usdc", 0.0) + state.get("withdrawable", 0.0)
+
+
+async def transfer_to_perp(agent_id: str, amount: float) -> dict:
+    """Transfer USDC from Spot wallet to Perp margin account."""
+    try:
+        exchange = get_exchange(agent_id)
+        # Use to_thread as SDK sign/post is blocking
+        result = await asyncio.to_thread(
+            exchange.usd_class_transfer, 
+            amount, 
+            True # to_perp=True
+        )
+        logger.info(f"🔄 [{agent_id}] Transferred ${amount} from Spot to Perp → {result}")
+        return {"success": True, "result": result}
+    except Exception as e:
+        logger.error(f"❌ [{agent_id}] Transfer failure: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def ensure_perp_liquidity(agent_id: str, required_amount: float) -> bool:
+    """Checks if Perp account has money; if not, tries to move from Spot."""
+    state = await get_account_state(agent_id)
+    if not state or "error" in state:
+        return False
+        
+    perp_value = state.get("account_value", 0.0)
+    if perp_value >= required_amount:
+        return True # Already has enough
+        
+    # Not enough in Perps, check Spot
+    spot_usdc = state.get("spot_usdc", 0.0)
+    if spot_usdc > 5.0: # Minimum to transfer
+        amount_to_move = min(spot_usdc, required_amount * 2) # move a bit extra for convenience
+        await transfer_to_perp(agent_id, amount_to_move)
+        return True
+        
+    return perp_value > 0 # Return True if any money exists
 
 
 # ── Order execution ───────────────────────────────────────────────────────────
@@ -633,12 +746,40 @@ def format_technical_summary(tech: dict) -> str:
         if "error" in d:
             lines.append(f"{coin}: RSI=N/A (falha na coleta)")
             continue
+
         rsi = d.get("rsi_14", 50)
         trend = d.get("trend_ema", "?")
+        macd_h = d.get("macd_histogram")
+        macd_trend = d.get("macd_trend", "?")
+        bb_upper = d.get("bb_upper")
+        bb_lower = d.get("bb_lower")
+        atr = d.get("atr_14")
+        last_close = d.get("last_close", 0)
+
+        # Confidence logic: multi-indicator scoring
+        confidence = 5.0
+        if trend == "BULL" and rsi < 70: confidence += 1.0
+        if trend == "BEAR" and rsi > 30: confidence += 1.0
+        if rsi > 80 or rsi < 20: confidence += 2.0  # Extreme RSI
+        if macd_trend == trend: confidence += 1.0  # MACD confirms EMA trend
+        if bb_upper and bb_lower and last_close:
+            if last_close <= bb_lower: confidence += 1.0  # Near lower band (oversold)
+            elif last_close >= bb_upper: confidence += 0.5  # Near upper band (overbought)
+
         flag = ""
-        if rsi >= 70:
-            flag = " ⚠ SOBRECOMPRA"
-        elif rsi <= 30:
-            flag = " ⚠ SOBREVENDA"
-        lines.append(f"{coin}: RSI(14)={rsi:.1f}{flag} | EMA9/21={trend}")
+        if rsi >= 70: flag = " ⚠ SOBRECOMPRA"
+        elif rsi <= 30: flag = " ⚠ SOBREVENDA"
+
+        # Bollinger position
+        bb_str = ""
+        if bb_upper and bb_lower and last_close:
+            bb_pos = (last_close - bb_lower) / (bb_upper - bb_lower) if (bb_upper - bb_lower) > 0 else 0.5
+            bb_str = f" | BB%={bb_pos:.0%}"
+
+        macd_str = f" | MACD={macd_trend}" if macd_trend else ""
+        atr_str = f" | ATR={atr:.2f}" if atr else ""
+
+        lines.append(
+            f"{coin}: RSI(14)={rsi:.1f}{flag} | EMA9/21={trend}{macd_str}{bb_str}{atr_str} | Conf: {confidence:.1f}"
+        )
     return "\n".join(lines)
